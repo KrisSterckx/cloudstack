@@ -1128,12 +1128,14 @@ public class NetUtils {
             return false;
         }
 
-        if (isNetworkAWithinNetworkB(cidr, cidr1) || isNetworkAWithinNetworkB(cidr, cidr2) || isNetworkAWithinNetworkB(cidr, cidr3)) {
+        //Remove the cidr check to allow all the IP addresses
+        /*if (isNetworkAWithinNetworkB(cidr, cidr1) || isNetworkAWithinNetworkB(cidr, cidr2) || isNetworkAWithinNetworkB(cidr, cidr3)) {
             return true;
         } else {
             s_logger.warn("cidr " + cidr + " is not RFC 1918 compliant");
             return false;
-        }
+        }*/
+        return true;
     }
 
     public static boolean verifyInstanceName(String instanceName) {
