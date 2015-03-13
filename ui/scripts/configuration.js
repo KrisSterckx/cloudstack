@@ -2259,7 +2259,7 @@
                                         //p.s. Netscaler is supported in both vpc and non-vpc
                                         if ($useVpc.is(':visible') && $useVpcCb.is(':checked')) { //*** vpc ***
                                             $optionsOfProviders.each(function(index) {
-                                                if ($(this).val() == 'InternalLbVm' || $(this).val() == 'VpcVirtualRouter' || $(this).val() == 'Netscaler'  || $(this).val() == 'NuageVsp' || $(this).val() == 'NuageVspVpc') {
+                                                if ($(this).val() == 'InternalLbVm' || $(this).val() == 'VpcVirtualRouter' || $(this).val() == 'Netscaler') {
                                                     $(this).attr('disabled', false);
                                                 } else {
                                                     $(this).attr('disabled', true);
@@ -3537,9 +3537,7 @@
                                             var networkServiceObjs = [];
                                             networkServiceObjs.push({
                                                 name: 'Dhcp',
-                                                provider: [
-                                                       {name: 'VpcVirtualRouter'},
-                                                       {name: 'NuageVsp'}]
+                                                provider: [{name: 'VpcVirtualRouter'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'Dns',
@@ -3555,21 +3553,15 @@
                                             });
                                             networkServiceObjs.push({
                                                 name: 'StaticNat',
-                                                provider: [
-                                                       {name: 'VpcVirtualRouter'},
-                                                       {name: 'NuageVsp'}]
+                                                provider: [{name: 'VpcVirtualRouter'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'SourceNat',
-                                                provider: [
-                                                       {name: 'VpcVirtualRouter'},
-                                                       {name: 'NuageVsp'}]
+                                                provider: [{name: 'VpcVirtualRouter'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'NetworkACL',
-                                                provider: [
-                                                       {name: 'VpcVirtualRouter'},
-                                                       {name: 'NuageVsp'}]
+                                                provider: [{name: 'VpcVirtualRouter'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'PortForwarding',
@@ -3589,8 +3581,7 @@
                                                 provider: [
                                                     {name: 'NiciraNvp'},
                                                     {name: 'Ovs'},
-                                                    {name: 'JuniperContrailVpcRouter'},
-                                                    {name: 'NuageVsp'}
+                                                    {name: 'JuniperContrailVpcRouter'}
                                                 ]
                                             });
 
