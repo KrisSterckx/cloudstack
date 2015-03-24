@@ -19,8 +19,10 @@ package com.cloud.network.element;
 import java.util.List;
 
 import com.cloud.exception.ResourceUnavailableException;
+import com.cloud.network.IpAddress;
 import com.cloud.network.Network;
 import com.cloud.network.vpc.NetworkACLItem;
+import com.cloud.network.vpc.Vpc;
 
 public interface NetworkACLServiceProvider extends NetworkElement {
 
@@ -32,4 +34,11 @@ public interface NetworkACLServiceProvider extends NetworkElement {
      */
     boolean applyNetworkACLs(Network config, List<? extends NetworkACLItem> rules) throws ResourceUnavailableException;
 
+    /**
+     * @param vpc
+     * @param ips
+     * @return
+     * @throws ResourceUnavailableException
+     */
+    boolean applyAccessControl(Vpc vpc, List<? extends IpAddress> ips) throws ResourceUnavailableException;
 }

@@ -5372,6 +5372,10 @@
                                                 id: 'Netscaler',
                                                 description: 'Netscaler'
                                             });
+                                            items.push({
+                                                id: 'NuageVspVpc',
+                                                description: 'NuageVspVpc (No Load Balancer)'
+                                            });
                                             args.response.success({
                                                 data: items
                                             });

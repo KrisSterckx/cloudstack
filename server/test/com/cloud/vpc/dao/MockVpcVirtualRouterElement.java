@@ -16,8 +16,11 @@
 // under the License.
 package com.cloud.vpc.dao;
 
+import java.util.List;
+
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.ResourceUnavailableException;
+import com.cloud.network.IpAddress;
 import com.cloud.network.element.VpcVirtualRouterElement;
 import com.cloud.network.vpc.Vpc;
 import com.cloud.vm.ReservationContext;
@@ -28,4 +31,8 @@ public class MockVpcVirtualRouterElement extends VpcVirtualRouterElement {
         return true;
     }
 
+    @Override
+    public boolean applyAccessControl(Vpc vpc, List<? extends IpAddress> ips) throws ResourceUnavailableException {
+        return true;
+    }
 }

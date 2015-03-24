@@ -249,6 +249,16 @@ public interface VpcService {
         ConcurrentOperationException;
 
     /**
+     * Update IP address access control from the Public network, to the VPC
+     *
+     * @param ipId
+     * @param enabled
+     * @return
+     * @throws ResourceUnavailableException
+     */
+     public boolean updateIpAccessControl(long ipId, boolean enabled) throws ResourceUnavailableException;
+
+    /**
      * @param routeId
      * @return
      */

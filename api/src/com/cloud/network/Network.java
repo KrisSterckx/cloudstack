@@ -137,6 +137,9 @@ public interface Network extends ControlledEntity, StateObject<Network.State>, I
         // add GloboDns provider
         public static final Provider GloboDns = new Provider("GloboDns", true);
 
+        public static final Provider NuageVsp = new Provider("NuageVsp", false);
+        public static final Provider NuageVspVpc = new Provider("NuageVspVpc", false);
+
         private final String name;
         private final boolean isExternal;
 

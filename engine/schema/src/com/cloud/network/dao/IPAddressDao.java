@@ -84,5 +84,7 @@ public interface IPAddressDao extends GenericDao<IPAddressVO, Long> {
 
     void lockRange(long vlandbId);
 
+    IPAddressVO findByVmIdAndNetworkId(long networkId, long vmId);
+
     List<IPAddressVO> listByAssociatedVmId(long vmId);
 }

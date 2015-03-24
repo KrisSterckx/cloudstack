@@ -146,6 +146,7 @@ DROP TABLE IF EXISTS `cloud`.`s2s_customer_gateway`;
 DROP TABLE IF EXISTS `cloud`.`s2s_vpn_gateway`;
 DROP TABLE IF EXISTS `cloud`.`s2s_vpn_connection`;
 DROP TABLE IF EXISTS `cloud`.`external_nicira_nvp_devices`;
+DROP TABLE IF EXISTS `cloud`.`external_nuage_vsp_devices`;
 DROP TABLE IF EXISTS `cloud`.`nicira_nvp_nic_map`;
 DROP TABLE IF EXISTS `cloud`.`s3`;
 DROP TABLE IF EXISTS `cloud`.`template_s3_ref`;
@@ -998,6 +999,7 @@ CREATE TABLE  `cloud`.`user_ip_address` (
   `physical_network_id` bigint unsigned NOT NULL COMMENT 'physical network id that this configuration is based on',
   `is_system` int(1) unsigned NOT NULL default '0',
   `vpc_id` bigint unsigned COMMENT 'vpc the ip address is associated with',
+  `access_control` int(1) unsigned NOT NULL default '0' COMMENT 'extra access control on special ports',
   PRIMARY KEY (`id`),
   UNIQUE (`public_ip_address`, `source_network_id`),
   CONSTRAINT `fk_user_ip_address__source_network_id` FOREIGN KEY (`source_network_id`) REFERENCES `networks`(`id`),
@@ -2474,6 +2476,18 @@ CREATE TABLE `cloud`.`nicira_nvp_nic_map` (
   `nic` varchar(255) UNIQUE COMMENT 'cloudstack uuid of the nic connected to this logical switch port',
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_nicira_nvp_nic_map__nic` FOREIGN KEY(`nic`) REFERENCES `nics`(`uuid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `cloud`.`external_nuage_vsp_devices` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `uuid` varchar(255) UNIQUE,
+  `physical_network_id` bigint unsigned NOT NULL COMMENT 'id of the physical network in to which nuage vsp is added',
+  `provider_name` varchar(255) NOT NULL COMMENT 'the service provider name corresponding to this nuage vsp device',
+  `device_name` varchar(255) NOT NULL COMMENT 'the name of the nuage vsp device',
+  `host_id` bigint unsigned NOT NULL COMMENT 'host id corresponding to the external nuage vsp device',
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_external_nuage_vsp_devices__host_id` FOREIGN KEY (`host_id`) REFERENCES `host`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_external_nuage_vsp_devices__physical_network_id` FOREIGN KEY (`physical_network_id`) REFERENCES `physical_network`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 SET foreign_key_checks = 1;

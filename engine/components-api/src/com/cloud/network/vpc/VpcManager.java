@@ -34,6 +34,7 @@ import com.cloud.network.Network.Provider;
 import com.cloud.network.Network.Service;
 import com.cloud.network.PhysicalNetwork;
 import com.cloud.network.addr.PublicIp;
+import com.cloud.network.element.VpcProvider;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.user.Account;
 
@@ -165,4 +166,6 @@ public interface VpcManager {
         validateNtwkOffForNtwkInVpc(Long networkId, long newNtwkOffId, String newCidr, String newNetworkDomain, Vpc vpc, String gateway, Account networkOwner, Long aclId);
 
     List<PrivateGateway> getVpcPrivateGateways(long vpcId);
+
+    List<VpcProvider> getVpcElements();
 }

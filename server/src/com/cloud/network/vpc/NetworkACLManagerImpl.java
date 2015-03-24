@@ -128,8 +128,11 @@ public class NetworkACLManagerImpl extends ManagerBase implements NetworkACLMana
                     removeRule(rule);
                 } else if (rule.getState() == NetworkACLItem.State.Add) {
                     NetworkACLItemVO ruleVO = _networkACLItemDao.findById(rule.getId());
-                    ruleVO.setState(NetworkACLItem.State.Active);
-                    _networkACLItemDao.update(ruleVO.getId(), ruleVO);
+                    if (ruleVO != null)
+                    {
+                        ruleVO.setState(NetworkACLItem.State.Active);
+                        _networkACLItemDao.update(ruleVO.getId(), ruleVO);
+                    }
                 }
             }
         }

@@ -4563,7 +4563,8 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
     @Override
     public boolean isOfferingForVpc(NetworkOffering offering) {
         boolean vpcProvider = _ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.VPCVirtualRouter) ||
-                              _ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.JuniperContrailVpcRouter);
+                              _ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.JuniperContrailVpcRouter) ||
+                                      (_ntwkOffServiceMapDao.getDistinctProviders(offering.getId()).contains(Provider.NuageVspVpc.getName()));
 
         return vpcProvider;
     }

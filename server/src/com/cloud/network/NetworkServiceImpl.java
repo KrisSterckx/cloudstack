@@ -16,6 +16,49 @@
 // under the License.
 package com.cloud.network;
 
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
+import java.security.InvalidParameterException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+
+import javax.ejb.Local;
+import javax.inject.Inject;
+import javax.naming.ConfigurationException;
+
+import org.apache.cloudstack.acl.ControlledEntity.ACLType;
+import org.apache.cloudstack.acl.SecurityChecker.AccessType;
+import org.apache.cloudstack.api.ApiConstants;
+import org.apache.cloudstack.api.command.admin.network.CreateNetworkCmdByAdmin;
+import org.apache.cloudstack.api.command.admin.network.DedicateGuestVlanRangeCmd;
+import org.apache.cloudstack.api.command.admin.network.ListDedicatedGuestVlanRangesCmd;
+import org.apache.cloudstack.api.command.admin.usage.ListTrafficTypeImplementorsCmd;
+import org.apache.cloudstack.api.command.user.network.CreateNetworkCmd;
+import org.apache.cloudstack.api.command.user.network.ListNetworksCmd;
+import org.apache.cloudstack.api.command.user.network.RestartNetworkCmd;
+import org.apache.cloudstack.api.command.user.vm.ListNicsCmd;
+import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
+import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
+import org.apache.cloudstack.framework.messagebus.MessageBus;
+import org.apache.cloudstack.framework.messagebus.PublishScope;
+import org.apache.cloudstack.network.element.InternalLoadBalancerElementService;
+import org.apache.log4j.Logger;
+
 import com.cloud.api.ApiDBUtils;
 import com.cloud.configuration.Config;
 import com.cloud.configuration.ConfigurationManager;
@@ -57,6 +100,7 @@ import com.cloud.network.Network.Service;
 import com.cloud.network.Networks.BroadcastDomainType;
 import com.cloud.network.Networks.TrafficType;
 import com.cloud.network.PhysicalNetwork.BroadcastDomainRange;
+import com.cloud.network.PhysicalNetwork.IsolationMethod;
 import com.cloud.network.VirtualRouterProvider.Type;
 import com.cloud.network.addr.PublicIp;
 import com.cloud.network.dao.AccountGuestVlanMapDao;
@@ -150,49 +194,6 @@ import com.cloud.vm.dao.NicSecondaryIpDao;
 import com.cloud.vm.dao.NicSecondaryIpVO;
 import com.cloud.vm.dao.UserVmDao;
 import com.cloud.vm.dao.VMInstanceDao;
-
-import org.apache.cloudstack.acl.ControlledEntity.ACLType;
-import org.apache.cloudstack.acl.SecurityChecker.AccessType;
-import org.apache.cloudstack.api.ApiConstants;
-import org.apache.cloudstack.api.command.admin.network.CreateNetworkCmdByAdmin;
-import org.apache.cloudstack.api.command.admin.network.DedicateGuestVlanRangeCmd;
-import org.apache.cloudstack.api.command.admin.network.ListDedicatedGuestVlanRangesCmd;
-import org.apache.cloudstack.api.command.admin.usage.ListTrafficTypeImplementorsCmd;
-import org.apache.cloudstack.api.command.user.network.CreateNetworkCmd;
-import org.apache.cloudstack.api.command.user.network.ListNetworksCmd;
-import org.apache.cloudstack.api.command.user.network.RestartNetworkCmd;
-import org.apache.cloudstack.api.command.user.vm.ListNicsCmd;
-import org.apache.cloudstack.context.CallContext;
-import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
-import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
-import org.apache.cloudstack.framework.messagebus.MessageBus;
-import org.apache.cloudstack.framework.messagebus.PublishScope;
-import org.apache.cloudstack.network.element.InternalLoadBalancerElementService;
-import org.apache.log4j.Logger;
-
-import javax.ejb.Local;
-import javax.inject.Inject;
-import javax.naming.ConfigurationException;
-
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.UnknownHostException;
-import java.security.InvalidParameterException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
 
 /**
  * NetworkServiceImpl implements NetworkService.
@@ -2120,11 +2121,14 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
                 offeringId = networkOfferingId;
             }
 
-            Map<Network.Capability, String> dnsCapabilities = getNetworkOfferingServiceCapabilities(_entityMgr.findById(NetworkOffering.class, offeringId), Service.Dns);
-            String isUpdateDnsSupported = dnsCapabilities.get(Capability.AllowDnsSuffixModification);
-            if (isUpdateDnsSupported == null || !Boolean.valueOf(isUpdateDnsSupported)) {
-                // TBD: use uuid instead of networkOfferingId. May need to hardcode tablename in call to addProxyObject().
-                throw new InvalidParameterValueException("Domain name change is not supported by the network offering id=" + networkOfferingId);
+            if (!network.getBroadcastDomainType().equals(BroadcastDomainType.Vsp))
+            {
+                Map<Network.Capability, String> dnsCapabilities = getNetworkOfferingServiceCapabilities(_entityMgr.findById(NetworkOffering.class, offeringId), Service.Dns);
+                String isUpdateDnsSupported = dnsCapabilities.get(Capability.AllowDnsSuffixModification);
+                if (isUpdateDnsSupported == null || !Boolean.valueOf(isUpdateDnsSupported)) {
+                    // TBD: use uuid instead of networkOfferingId. May need to hardcode tablename in call to addProxyObject().
+                    throw new InvalidParameterValueException("Domain name change is not supported by the network offering id=" + networkOfferingId);
+                }
             }
 
             network.setNetworkDomain(domainSuffix);
@@ -2561,6 +2565,9 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
 
             //Add Internal Load Balancer element as a default network service provider
             addDefaultInternalLbProviderToPhysicalNetwork(pNetwork.getId());
+
+            //Add NuageVspVpc provider as the default network service provider is the isolation type is VSP
+            addNuageVspVpcToPhysicalNetwork(pNetwork.getId(), isolationMethods);
 
             return pNetwork;
                 }
@@ -3883,6 +3890,30 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
         PhysicalNetworkServiceProviderVO provider = q.find();
         provider.setState(PhysicalNetworkServiceProvider.State.Enabled);
         _pNSPDao.update(provider.getId(), provider);
+    }
+
+    private void addNuageVspVpcToPhysicalNetwork(long physicalNetworkId, List<String> isolationMethods) {
+        if (isolationMethods.contains(IsolationMethod.VSP.name())) {
+            List<Service> enabledServices = new ArrayList<Service>();
+            enabledServices.add(Service.Dhcp);
+            enabledServices.add(Service.SourceNat);
+            enabledServices.add(Service.StaticNat);
+            enabledServices.add(Service.NetworkACL);
+            enabledServices.add(Service.UserData);
+            try {
+                // Create the new physical network in the database
+                PhysicalNetworkServiceProviderVO nsp = new PhysicalNetworkServiceProviderVO(physicalNetworkId, Network.Provider.NuageVspVpc.getName());
+                // set enabled services
+                nsp.setEnabledServices(enabledServices);
+                nsp.setState(com.cloud.network.PhysicalNetworkServiceProvider.State.Enabled);
+
+                nsp = _pNSPDao.persist(nsp);
+
+            } catch (Exception ex) {
+                s_logger.warn("Exception: ", ex);
+                throw new CloudRuntimeException("Fail to add a provider to physical network");
+            }
+        }
     }
 
     protected boolean isNetworkSystem(Network network) {
