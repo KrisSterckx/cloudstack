@@ -26,11 +26,13 @@ Summary:   CloudStack IaaS Platform
 #http://fedoraproject.org/wiki/PackageNamingGuidelines#Pre-Release_packages
 %if "%{?_prerelease}" != ""
 %define _maventag %{_ver}-SNAPSHOT
-Release:   %{_rel}%{dist}
+Release:   VSP.%{_rel}%{dist}
 %else
 %define _maventag %{_ver}
-Release:   %{_rel}%{dist}
+Release:   VSP.%{_rel}%{dist}
 %endif
+
+%define _rpmfilename %%{NAME}-VSP.%{_rel}.rpm
 
 %{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
@@ -212,7 +214,7 @@ if [ "%{_ossnoss}" == "NOREDIST" -o "%{_ossnoss}" == "noredist" ] ; then
       mvn -Pawsapi,systemvm -Dnoredist -Dsimulator clean package 
    else
       echo "Executing mvn noredist packaging without simulator..."
-      mvn -Pawsapi,systemvm -Dnoredist clean package
+      mvn -Pawsapi,systemvm -Dnoredist -DpluginBuild=%{_rel} clean package
    fi
 else
    if [ "%{_sim}" == "SIMULATOR" -o "%{_sim}" == "simulator" ] ; then 
@@ -220,7 +222,7 @@ else
       mvn -Pawsapi,systemvm -Dsimulator clean package 
    else
       echo "Executing mvn default packaging without simulator ..."
-      mvn -Pawsapi,systemvm clean package
+      mvn -Pawsapi,systemvm -DpluginBuild=%{_rel} clean package
    fi
 fi 
 

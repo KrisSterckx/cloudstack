@@ -92,4 +92,8 @@ public interface IpAddress extends ControlledEntity, Identity, InternalIdentity,
 
     public Date getCreated();
 
+    void setAccessControl(boolean accessControl);
+
+    boolean isAccessControl();
+
 }

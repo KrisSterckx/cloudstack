@@ -85,9 +85,11 @@ import com.cloud.network.dao.NetworkDao;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.network.dao.Site2SiteVpnGatewayDao;
+import com.cloud.network.element.NetworkACLServiceProvider;
 import com.cloud.network.element.NetworkElement;
 import com.cloud.network.element.StaticNatServiceProvider;
 import com.cloud.network.element.VpcProvider;
+import com.cloud.network.rules.FirewallRule;
 import com.cloud.network.vpc.VpcOffering.State;
 import com.cloud.network.vpc.dao.NetworkACLDao;
 import com.cloud.network.vpc.dao.PrivateIpDao;
@@ -208,7 +210,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
     private final List<Service> nonSupportedServices = Arrays.asList(Service.SecurityGroup, Service.Firewall);
     private final List<Provider> supportedProviders = Arrays.asList(Provider.VPCVirtualRouter,
             Provider.NiciraNvp, Provider.InternalLbVm, Provider.Netscaler, Provider.JuniperContrailVpcRouter,
-            Provider.Ovs);
+            Provider.Ovs, Provider.NuageVspVpc, Provider.NuageVsp);
 
     int _cleanupInterval;
     int _maxNetworks;
@@ -320,6 +322,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         // Just here for 4.1, replaced by commit 836ce6c1 in newer versions
         Set<Network.Provider> sdnProviders = new HashSet<Network.Provider>();
         sdnProviders.add(Provider.NiciraNvp);
+        sdnProviders.add(Provider.NuageVspVpc);
         sdnProviders.add(Provider.JuniperContrailVpcRouter);
 
         boolean sourceNatSvc = false;
@@ -2339,6 +2342,83 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
             _ntwkDao.update(guestNetwork.getId(), (NetworkVO)guestNetwork);
         }
         return guestNetwork;
+    }
+
+    @Override
+    @ActionEvent(eventType = EventTypes.EVENT_NET_RULE_MODIFY, eventDescription = "updating ip address access control", async=true)
+    public boolean updateIpAccessControl(long ipId, boolean enabled)
+            throws ResourceUnavailableException {
+         Account caller = CallContext.current().getCallingAccount();
+         Account owner = null;
+
+         IpAddress ip = _ntwkModel.getIp(ipId);
+         if (ip != null) {
+             _accountMgr.checkAccess(caller, null, true, ip);
+             owner = _accountMgr.getAccount(ip.getAllocatedToAccountId());
+         } else {
+             s_logger.debug("Unable to find ip address by id: " + ipId);
+             return false;
+         }
+
+         if (ip.getVpcId() == null) {
+            s_logger.debug("Ip " + ipId + " is not associated to VPC");
+            return false;
+         }
+
+         Vpc vpc = _vpcDao.findById(ip.getVpcId());
+         if (vpc == null) {
+            s_logger.debug("VPC which Ip " + ipId + " associated to not found");
+             return false;
+         }
+
+         s_logger.debug("Updating ip " + ip + " access control policy");
+         //Update DB
+         IPAddressVO ipVO = _ipAddressDao.findById(ipId);
+         //update ip address with networkId
+         boolean previousAccessControl = ipVO.isAccessControl();
+         ipVO.setAccessControl(enabled);
+         _ipAddressDao.update(ipId, ipVO);
+         boolean result = true;
+         if (ipVO.isSourceNat() || ipVO.isOneToOneNat() ||
+                _firewallDao.countRulesByIpIdAndState(ipId, FirewallRule.State.Active) > 0) {
+            List<IpAddress> ips = new ArrayList<IpAddress>();
+            ips.add(ipVO);
+            result = applyAccessControl(ips);
+         }
+         if (result) {
+            s_logger.debug("Successfully updated ip " + ipId + " access control policy");
+         } else {
+            s_logger.debug("Failed to updated ip " + ipId + " access control policy");
+            //As the Access Control policy is failed reset it to previous value
+            ipVO.setAccessControl(previousAccessControl);
+            _ipAddressDao.update(ipId, ipVO);
+         }
+        return result;
+    }
+
+    protected boolean applyAccessControl(List<IpAddress> ips) throws ResourceUnavailableException {
+         if (ips.isEmpty()) {
+             s_logger.debug("No ips to apply access control");
+             return true;
+         }
+         Vpc vpc = _vpcDao.findById(ips.get(0).getVpcId());
+
+         s_logger.debug("Applying ip access control for vpc " + vpc);
+         String aclProvider = _vpcSrvcDao.getProviderForServiceInVpc(vpc.getId(), Service.NetworkACL);
+
+         for (VpcProvider provider: getVpcElements()){
+             if (!(provider instanceof NetworkACLServiceProvider && provider.getName().equalsIgnoreCase(aclProvider))) {
+                 continue;
+             }
+
+             if (((NetworkACLServiceProvider)provider).applyAccessControl(vpc, ips)) {
+                 s_logger.debug("Applied ip access control for vpc " + vpc);
+             } else {
+                 s_logger.warn("Failed to apply ip access control for vpc " + vpc);
+                 return false;
+             }
+         }
+         return true;
     }
 
     protected IPAddressVO getExistingSourceNatInVpc(long ownerId, long vpcId) {

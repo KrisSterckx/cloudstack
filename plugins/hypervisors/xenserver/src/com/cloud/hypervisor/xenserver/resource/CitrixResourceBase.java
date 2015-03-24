@@ -1032,7 +1032,7 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
             assert (BroadcastDomainType.getSchemeValue(uri) == BroadcastDomainType.Vlan);
             long vlan = Long.parseLong(BroadcastDomainType.getValue(uri));
             return enableVlanNetwork(conn, vlan, network);
-        } else if (type == BroadcastDomainType.Native || type == BroadcastDomainType.LinkLocal) {
+        } else if (type == BroadcastDomainType.Native || type == BroadcastDomainType.LinkLocal || type == BroadcastDomainType.Vsp) {
             return network.getNetwork();
         } else if (uri != null && type == BroadcastDomainType.Vswitch) {
             String header = uri.toString().substring(Networks.BroadcastDomainType.Vswitch.scheme().length() + "://".length());
@@ -1096,6 +1096,14 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
             vifr.otherConfig.put("cloudstack-vm-id", vmSpec.getUuid());
         }
 
+        // Nuage Vsp needs Virtual Router IP to be passed in the otherconfig
+        // get the virtual router IP information from broadcast uri
+        if (nic.getType().equals(TrafficType.Guest)) {
+            vifr.otherConfig.put("vsp-vr-ip", getVirtualRouterIP(nic.getGateway(), nic.getNetmask()));
+        } else {
+            s_logger.debug("NIC with MAC " + nic.getMac() + " and BroadcastDomainType " + nic.getBroadcastType() + " in network(" + nic.getGateway() + "/" + nic.getNetmask()
+                    + ") is " + nic.getType() + " traffic type. So, vsp-vr-ip is not set in the extraconfig");
+        }
         // OVS plugin looks at network UUID in the vif 'otherconfig' details to group VIF's & tunnel ports as part of tier
         // when bridge is setup for distributed routing
         vifr.otherConfig.put("cloudstack-network-id", nic.getNetworkUuid());
@@ -1326,7 +1334,7 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
         vmr.actionsAfterShutdown = Types.OnNormalExit.DESTROY;
         vmr.VCPUsMax = (long) vmSpec.getCpus(); // FIX ME: In case of dynamic scaling this VCPU max should be the minumum of
                                                 // recommended value for that template and capacity remaining on host
-
+        vmr.otherConfig.put("vm_uuid", vmSpec.getUuid());
         if (isDmcEnabled(conn, host) && vmSpec.isEnableDynamicallyScaleVm()) {
             //scaling is allowed
             vmr.memoryStaticMin = getStaticMin(vmSpec.getOs(), vmSpec.getBootloader() == BootloaderType.CD, vmSpec.getMinRam(), vmSpec.getMaxRam());
@@ -7282,5 +7290,30 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
         Connection conn = getConnection();
         String result = callHostPlugin(conn, "ovstunnel", "getLabel");
         return result;
+    }
+
+    private String getVirtualRouterIP(String gateway, String netmask) {
+        String virtualRouterIp;
+        //Check if the subnet has minimum 5 host in it.
+        String subnet = NetUtils.getSubNet(gateway, netmask);
+        long cidrSize = NetUtils.getCidrSize(netmask);
+        Set<Long> allIPsInCidr = NetUtils.getAllIpsFromCidr(subnet, cidrSize, new HashSet<Long>());
+
+        if (allIPsInCidr.size() > 3) {
+            //get the second IP and see if it the networks GatewayIP
+           Iterator<Long> ipIterator = allIPsInCidr.iterator();
+            long vip = ipIterator.next();
+            if (NetUtils.ip2Long(gateway) == vip) {
+                s_logger.debug("Gateway of the Network(" + gateway + "/" + netmask + ") has the first IP " + NetUtils.long2Ip(vip));
+                vip = ipIterator.next();
+                virtualRouterIp = NetUtils.long2Ip(vip);
+                s_logger.debug("So, reserving the 2nd IP " + virtualRouterIp + " for the Virtual Router IP in Network(" + gateway + "/" + netmask + ")");
+            } else {
+                virtualRouterIp = NetUtils.long2Ip(vip);
+                s_logger.debug("1nd IP is not used as the gateway IP. So, reserving" + virtualRouterIp + " for the Virtual Router IP for Network(" + gateway + "/" + netmask + ")");
+            }
+            return virtualRouterIp;
+        }
+        return null;
     }
 }

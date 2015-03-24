@@ -121,6 +121,7 @@ public class Networks {
                 }
             }
         },
+        Vsp("vsp", String.class),
         UnDecided(null, null), OpenDaylight("opendaylight", String.class);
 
         private final String scheme;
