@@ -56,6 +56,7 @@ import com.cloud.network.PhysicalNetwork.IsolationMethod;
 import com.cloud.network.dao.IPAddressVO;
 import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.network.dao.PhysicalNetworkVO;
+import com.cloud.network.manager.NuageVspManager;
 import com.cloud.network.router.VirtualRouter;
 import com.cloud.network.router.VirtualRouter.Role;
 import com.cloud.network.router.VpcVirtualNetworkApplianceManager;
@@ -556,6 +557,13 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
     public boolean applyAccessControl(Vpc vpc, List<? extends IpAddress> ips) throws ResourceUnavailableException {
         boolean appliedAccessControl = true;
         long initialStartTime = System.currentTimeMillis();
+        Boolean isIpAccessControlFeatureEnabled = Boolean.valueOf(_configDao.getValue(NuageVspManager.NuageVspIpAccessControl.key()));
+        if (!isIpAccessControlFeatureEnabled) {
+            //IP Access Control feature is not enabled. So, throw an error to enable if VSP supports it
+            String errorMessage = "IP Access Control feature is not enabled. Use " + NuageVspManager.NuageVspIpAccessControl.key() + " global setting either to enable od disable the feature";
+            s_logger.error(errorMessage);
+            throw new ResourceUnavailableException(errorMessage, Vpc.class, vpc.getId());
+        }
         for (IpAddress fip : ips)
         {
             String ipAddress = fip.getAddress().addr();

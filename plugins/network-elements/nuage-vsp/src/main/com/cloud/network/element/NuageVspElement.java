@@ -37,6 +37,7 @@ import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
 import org.apache.cloudstack.api.InternalIdentity;
+import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.RandomUtils;
@@ -152,6 +153,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
     EntityManager _entityMgr;
     @Inject
     NuageVspManager _nuageVspManager;
+    @Inject
+    ConfigurationDao _configDao;
 
     @Override
     public boolean applyIps(Network network, List<? extends PublicIpAddress> ipAddress, Set<Service> service) throws ResourceUnavailableException {
@@ -498,6 +501,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         Long vpcId = config.getVpcId();
         Domain networksDomain = _domainDao.findById(config.getDomainId());
         DataCenter dc = _dcDao.findById(config.getDataCenterId());
+        Boolean isIpAccessControlFeatureEnabled = Boolean.valueOf(_configDao.getValue(NuageVspManager.NuageVspIpAccessControl.key()));
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser;
         try {
             nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(config.getPhysicalNetworkId()));
@@ -557,7 +561,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                             }
                             //this is the case where we know that vportId is null so set it to "" so that we do not query VPorts in VSP to find the VPort that has the FIP
                             NuageVspApiUtil.releaseFIPFromVsp(config.getUuid(), sourceNatIp.getAddress().addr(), sourceNatIp.getUuid(), attachedL2DomainOrDomainId, "", vspNetworkId,
-                                    attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc);
+                                    attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc, isIpAccessControlFeatureEnabled);
                         } else {
                             s_logger.debug("Static NAT " + sourceNatIp.getAddress().addr() + "(" + sourceNatIp.getUuid() + ")" + " associated to network " + config.getName()
                                     + " is not in Revoke state but NIC is null.");
@@ -600,11 +604,11 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                                         + " and delete the Floating IP");
                             }
                             NuageVspApiUtil.releaseFIPFromVsp(config.getUuid(), sourceNatIp.getAddress().addr(), sourceNatIp.getUuid(), domainId != null ? domainId : attachedL2DomainOrDomainId,
-                                    vportId, vspNetworkId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc);
+                                    vportId, vspNetworkId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc, isIpAccessControlFeatureEnabled);
                         } else {
                             NuageVspApiUtil.applyStaticNatInVSP(config.getName(), config.getUuid(), nuageVspAPIParamsAsCmsUser, attachedL2DomainOrDomainId, attachedNetworkType, vspNetworkId,
                                     vpcOrSubnetUuid, isVpc, sourceNatIp.getAddress().addr(), sourceNatIp.getUuid(), sourceNatVan.getVlanGateway(), sourceNatVan.getVlanNetmask(),
-                                    sourceNatIp.isAccessControl(), sourceNatVan.getUuid(), nicVO.getIp4Address(), nicVO.getUuid(), vportId, domainId);
+                                    sourceNatIp.isAccessControl(), isIpAccessControlFeatureEnabled, sourceNatVan.getUuid(), nicVO.getIp4Address(), nicVO.getUuid(), vportId, domainId);
                         }
                     }
                 } catch (Exception e) {

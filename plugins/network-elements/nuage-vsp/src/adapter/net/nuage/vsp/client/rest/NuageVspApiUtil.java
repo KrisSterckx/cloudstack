@@ -381,14 +381,14 @@ public class NuageVspApiUtil {
 
     public static String createIsolatedL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId,
-            NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+            Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
         return createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, ipAddressRange, defaultCSEgressPolicy,
-                networkUuid, groupId, nuageVspAPIParams, null, null);
+                networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled);
     }
 
     public static String createVPCOrL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId,
-            NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid) throws NuageVspAPIUtilException {
+            NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled) throws NuageVspAPIUtilException {
 
         s_logger.debug("Create or find a VPC/Isolated network associated to network " + networkName + " in VSP");
         String domainTemplateId = null;
@@ -481,7 +481,7 @@ public class NuageVspApiUtil {
             errorMessage = createDefaultIngressAndEgressAcls(isVpc, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
                     new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
                 //Create the Default FIP ACL
-            if (isVpc) {
+            if (isIpAccessControlFeatureEnabled && isVpc) {
                 try {
                     if (errorMessage.length() == 0) {
                         createDefaultFIPACLTemplate(vpcOrSubnetUuid, domainId, NuageVspEntity.DOMAIN, nuageVspAPIParams);
@@ -948,10 +948,10 @@ public class NuageVspApiUtil {
     }
 
     public static String allocateFIPToVPortInVsp(String sourceNatIp, String sourceNatIpUuid, boolean sourceNatIpAccessControl, String networkUuid, String sharedResourceId, String domainId,
-            String vportId, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, String vpcOrSubnetUuid, boolean isVpc) throws NuageVspAPIUtilException {
+            String vportId, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, String vpcOrSubnetUuid, boolean isVpc, Boolean isIpAccessControlFeatureEnabled) throws NuageVspAPIUtilException {
         String egressFipAclEntryId = null;
         //Handle FIPACLs only for VPC
-        if (isVpc) {
+        if (isIpAccessControlFeatureEnabled && isVpc) {
             try {
                 egressFipAclEntryId = applyFIPAccessControl(vpcOrSubnetUuid, domainId, NuageVspEntity.DOMAIN, sourceNatIpAccessControl, sourceNatIp, sourceNatIpUuid, nuageVspAPIParams);
             } catch (Exception e) {
@@ -980,7 +980,7 @@ public class NuageVspApiUtil {
                 s_logger.debug("Created a new FloatingIP in Vsp " + floatingIpJson + " in FLoatingIP shared resource " + sharedResourceId);
             } catch (Exception e1) {
                 errorMessage = "Failed to create Floating in VSP using REST API " + e1.getMessage();
-                if (isVpc && egressFipAclEntryId != null) {
+                if (isIpAccessControlFeatureEnabled && isVpc && egressFipAclEntryId != null) {
                     s_logger.debug("As the creation of FIP " + sourceNatIp + " failed reverting the FIP ACL that was created earlier");
                     try {
                         NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES,
@@ -1027,7 +1027,7 @@ public class NuageVspApiUtil {
     }
 
     public static void releaseFIPFromVsp(String networkUuid, String sourceNatIp, String staticNatUuid, String domainId, String vportId, String vspNetworkId,
-            NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, boolean isVpc) throws Exception {
+            NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, boolean isVpc, Boolean isIpAccessControlFeatureEnabled) throws Exception {
         //get the FIP
         String fipExternalId = networkUuid + ":" + staticNatUuid;
         String floatingIpId = findEntityIdByExternalUuid(attachedNetworkType.equals(NuageVspEntity.L2DOMAIN) ? NuageVspEntity.L2DOMAIN : NuageVspEntity.DOMAIN, domainId,
@@ -1063,7 +1063,7 @@ public class NuageVspApiUtil {
         }
 
         boolean rollbackFIPACL = false;
-        if (isVpc) {
+        if (isIpAccessControlFeatureEnabled && isVpc) {
             try {
                 applyFIPAccessControl(networkUuid, domainId, NuageVspEntity.DOMAIN, false, sourceNatIp, staticNatUuid, nuageVspAPIParams);
             } catch (Exception e) {
@@ -1090,7 +1090,7 @@ public class NuageVspApiUtil {
             s_logger.error(errorMesage);
             rollbackFIPACL = true;
         }
-        if (isVpc && rollbackFIPACL) {
+        if (isIpAccessControlFeatureEnabled && isVpc && rollbackFIPACL) {
             try {
                 s_logger.debug("As cleanup of FIP " + sourceNatIp + " failed, reverting deletion of FIP ACL and adding back the ACL");
                 applyFIPAccessControl(networkUuid, domainId, NuageVspEntity.DOMAIN, true, sourceNatIp, staticNatUuid, nuageVspAPIParams);
@@ -1845,7 +1845,7 @@ public class NuageVspApiUtil {
 
     public static void applyStaticNatInVSP(String networkName, String networkUuid, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, String attachedL2DomainOrDomainId, NuageVspEntity attachedNetworkType,
             String vspNetworkId, String vpcOrSubnetUuid, boolean isVpc, String staticNatIpAddress, String staticNatIpUuid, String staticNatVlanGateway, String staticNatVlanNetmask,
-            boolean isAccessControl, String staticNatVanUuid, String nicIp4Address, String nicUuid, String vportId, String domainId) throws NuageVspAPIUtilException {
+            boolean isAccessControl, Boolean isIpAccessControlFeatureEnabled, String staticNatVanUuid, String nicIp4Address, String nicUuid, String vportId, String domainId) throws NuageVspAPIUtilException {
         //check if the SharedNetwork exists in Vsp
         String vspSharedNetworkJson = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.SHARED_NETWORK, null, null,
                 NuageVspAttribute.SHARED_RESOURCE_NAME.getAttributeName(), staticNatVanUuid, nuageVspAPIParamsAsCmsUser);
@@ -1863,7 +1863,7 @@ public class NuageVspApiUtil {
         }
         if (vportId != null) {
             NuageVspApiUtil.allocateFIPToVPortInVsp(staticNatIpAddress, staticNatIpUuid, isAccessControl, networkUuid,
-                    vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc);
+                    vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc, isIpAccessControlFeatureEnabled);
         } else {
             if (attachedNetworkType.equals(NuageVspEntity.DOMAIN)) {
                 String vportIdUsingNICUuid = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.SUBNET, vspNetworkId, NuageVspEntity.VPORT, nicUuid,
@@ -1872,7 +1872,7 @@ public class NuageVspApiUtil {
                     s_logger.warn("NIC associated to Static NAT " + staticNatIpAddress + "(" + staticNatIpUuid + ") is not present in VSD. But, VM's VPort"
                             + " with externalID " + nicUuid + " exists in VSD. So, associate the FIP to the Vport " + vportIdUsingNICUuid);
                     NuageVspApiUtil.allocateFIPToVPortInVsp(staticNatIpAddress, staticNatIpUuid, isAccessControl, networkUuid,
-                            vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportIdUsingNICUuid, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc);
+                            vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportIdUsingNICUuid, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc, isIpAccessControlFeatureEnabled);
                 } else {
                     StringBuffer errorMessage = new StringBuffer();
                     errorMessage.append("Static NAT ").append(staticNatIpAddress).append("(" + staticNatIpUuid + ") associated to network ").append(networkName)

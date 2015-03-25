@@ -220,6 +220,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 networksAccount.getAccountName(), networksAccount.getUuid(), nuageVspAPIParamsAsCmsUser);
 
         long networkId = network.getId();
+        Boolean isIpAccessControlFeatureEnabled = Boolean.valueOf(_configDao.getValue(NuageVspManager.NuageVspIpAccessControl.key()));
         network = _networkDao.acquireInLockTable(network.getId(), 1200);
         if (network == null) {
             throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
@@ -239,7 +240,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     Vpc vpcObj = _vpcDao.findById(vpcId);
                     NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, ipAddressRange,
-                            offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(), vpcObj.getUuid());
+                            offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(), vpcObj.getUuid(), isIpAccessControlFeatureEnabled);
                 } else {
                     //Create an L3 DomainTemplate
                     if (s_logger.isDebugEnabled()) {
@@ -247,7 +248,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     }
                     NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, ipAddressRange,
-                            offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser);
+                            offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser);
                 }
             } else {
                 //Create a L2 DomainTemplate
@@ -280,6 +281,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             Account networksAccount = _accountDao.findById(network.getAccountId());
             DomainVO networksDomain = _domainDao.findById(network.getDomainId());
             Object[] attachedNetworkDetails;
+            Boolean isIpAccessControlFeatureEnabled = Boolean.valueOf(_configDao.getValue(NuageVspManager.NuageVspIpAccessControl.key()));
             boolean domainRouter = false;
             try {
                 NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
@@ -360,8 +362,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                             NuageVspApiUtil.applyStaticNatInVSP(network.getName(), network.getUuid(), nuageVspAPIParamsAsCmsUser, vportAndDomainId[1],
                                     attachedNetworkDetails[0].equals(NuageVspEntity.SUBNET) ? NuageVspEntity.DOMAIN : NuageVspEntity.L2DOMAIN, (String)attachedNetworkDetails[1],
                                     (String)attachedNetworkDetails[3], ((Boolean)attachedNetworkDetails[2]), staticNatIp.getAddress().addr(), staticNatIp.getUuid(),
-                                    staticNatVlan.getVlanGateway(), staticNatVlan.getVlanNetmask(), staticNatIp.isAccessControl(), staticNatVlan.getUuid(),
-                                    allocatedNic.getIp4Address(), null, vportAndDomainId[0], null);
+                                    staticNatVlan.getVlanGateway(), staticNatVlan.getVlanNetmask(), staticNatIp.isAccessControl(), isIpAccessControlFeatureEnabled,
+                                    staticNatVlan.getUuid(), allocatedNic.getIp4Address(), null, vportAndDomainId[0], null);
                         }
                     } catch (Exception e) {
                         s_logger.warn("Post processing of StaticNAT could not continue. Error happened while checking if StaticNat " + staticNatIp.getAddress()
