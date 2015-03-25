@@ -589,10 +589,6 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
     @Override
     public ConfigKey<?>[] getConfigKeys() {
-<<<<<<< HEAD
-        return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspIpAccessControl};
-=======
-        return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspConfigGateway};
->>>>>>> 169e9d1... Added support to associate Domain to WanService attached to 7750 Gateway
+        return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspIpAccessControl, NuageVspConfigGateway};
     }
 }
