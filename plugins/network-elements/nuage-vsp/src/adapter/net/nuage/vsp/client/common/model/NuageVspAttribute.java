@@ -204,8 +204,24 @@ public enum NuageVspAttribute {
     ENTERPRISE_PROFILE_FLOATING_IP_QUOTA("floatingIPsQuota"),
     ENTERPRISE_PROFILE_GATEWAY_MGMT("allowGatewayManagement"),
     ENTERPRISE_PROFILE_FWD_CLASSES("allowedForwardingClasses"),
-    ENTERPRISE_PROFILE_ADV_QOS("allowAdvancedQOSConfigurations");
+    ENTERPRISE_PROFILE_ADV_QOS("allowAdvancedQOSConfigurations"),
 
+    //Gateway
+    GATEWAY_SYSTEMID("systemID"),
+
+    //Gateway Service
+    WAN_SERVICE_VPN_CONNECT_ID("associatedVPNConnectID"),
+
+    //VPN connection
+    VPN_CONNECTION_WANSERVICE_ID("associatedWANServiceID"),
+    VPN_CONNECTION_WANSERVICE_NAME("name"),
+
+    //EnterprisePermission
+    ENTERPRISEPERMISSION_PERMITTED_ENTITYID("permittedEntityID"),
+    ENTERPRISEPERMISSION_PERMITTED_ENTITYYPE("permittedEntityType"),
+    ENTERPRISEPERMISSION_PERMITTED_ACTION("permittedAction"),
+
+    ;
 
     private static Map<String, NuageVspAttribute> lookup = new HashMap<String, NuageVspAttribute>();
 

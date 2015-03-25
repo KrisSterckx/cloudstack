@@ -235,20 +235,21 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat)) {
                 //get the details of DNS server setting to be set on the network
                 List<String> dnsServers = _nuageVspManager.getDnsDetails(network);
+                List<String> gatewaySystemIds = _nuageVspManager.getGatewaySystemIds();
 
                 if (isVpc) {
                     Vpc vpcObj = _vpcDao.findById(vpcId);
                     NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
-                            NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, ipAddressRange,
-                            offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(), vpcObj.getUuid(), isIpAccessControlFeatureEnabled);
+                            NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
+                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(), vpcObj.getUuid(), isIpAccessControlFeatureEnabled);
                 } else {
                     //Create an L3 DomainTemplate
                     if (s_logger.isDebugEnabled()) {
                         s_logger.debug("Handling implement() call back for network " + network.getName() + ". Check with VSP to see if a Isolated L3 networks exist or not");
                     }
                     NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
-                            NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, ipAddressRange,
-                            offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser);
+                            NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
+                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser);
                 }
             } else {
                 //Create a L2 DomainTemplate

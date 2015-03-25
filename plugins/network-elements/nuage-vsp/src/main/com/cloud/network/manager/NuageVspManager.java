@@ -56,6 +56,9 @@ public interface NuageVspManager extends PluggableService {
             "Defines if NuageVsp plugin needs to enable IP access control feature. True will enable the feature and false will disable the feature", true,
             Scope.Global, null);
 
+    static final ConfigKey<String> NuageVspConfigGateway = new ConfigKey<String>(String.class, "nuagevsp.configure.gateway.systemid", "Advanced", "",
+            "Defines the systemID of the gateway configured in VSP", true, Scope.Global, null);
+
     public NuageVspDeviceVO addNuageVspDevice(AddNuageVspDeviceCmd cmd);
 
     public NuageVspDeviceVO updateNuageVspDevice(UpdateNuageVspDeviceCmd cmd);
@@ -67,4 +70,6 @@ public interface NuageVspManager extends PluggableService {
     List<NuageVspDeviceVO> listNuageVspDevices(ListNuageVspDevicesCmd cmd);
 
     public List<String> getDnsDetails(Network network);
+
+    public List<String> getGatewaySystemIds();
 }
