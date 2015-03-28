@@ -245,7 +245,6 @@ import com.cloud.hypervisor.vmware.mo.VmwareHypervisorHostResourceSummary;
 import com.cloud.hypervisor.vmware.util.VmwareContext;
 import com.cloud.hypervisor.vmware.util.VmwareContextPool;
 import com.cloud.hypervisor.vmware.util.VmwareHelper;
-import com.cloud.network.Network;
 import com.cloud.network.Networks;
 import com.cloud.network.Networks.BroadcastDomainType;
 import com.cloud.network.Networks.TrafficType;
@@ -933,7 +932,7 @@ public class VmwareResource implements StoragePoolResource, ServerResource, Vmwa
             NicTO nicTo = cmd.getNic();
             VirtualDevice nic;
             Pair<ManagedObjectReference, String> networkInfo = prepareNetworkFromNicInfo(vmMo.getRunningHost(), nicTo, false, cmd.getVMType());
-            String dvSwitchUuid;
+            String dvSwitchUuid = null;
             if (VmwareHelper.isDvPortGroup(networkInfo.first())) {
                 ManagedObjectReference dcMor = hyperHost.getHyperHostDatacenter();
                 DatacenterMO dataCenterMo = new DatacenterMO(context, dcMor);
