@@ -39,19 +39,24 @@ from SocketServer     import ThreadingMixIn #, ForkingMixIn
 
 passMap = {}
 secureToken = None
+listeningAddress = '127.0.0.1'
 lock = threading.RLock()
 
 def getTokenFile():
     return '/tmp/passwdsrvrtoken'
 
 def getPasswordFile():
-    return '/var/cache/cloud/passwords'
+    return '/var/cache/cloud/passwords-%s' % listeningAddress
 
 def initToken():
     global secureToken
-    secureToken = binascii.hexlify(os.urandom(16))
-    with open(getTokenFile(), 'w') as f:
-        f.write(secureToken)
+    if os.path.exists(getTokenFile()):
+        with open(getTokenFile(), 'r') as f:
+            secureToken = f.read()
+    if not secureToken:
+        secureToken = binascii.hexlify(os.urandom(16))
+        with open(getTokenFile(), 'w') as f:
+            f.write(secureToken)
 
 def checkToken(token):
     return token == secureToken
@@ -133,7 +138,7 @@ class PasswordRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         clientAddress = self.client_address[0]
-        if clientAddress not in ['localhost', '127.0.0.1']:
+        if clientAddress not in ['localhost', '127.0.0.1', listeningAddress]:
             syslog.syslog('serve_password: non-localhost IP trying to save password: %s' % clientAddress)
             self.send_response(403)
             return
@@ -151,6 +156,7 @@ class PasswordRequestHandler(BaseHTTPRequestHandler):
         if not ip or not password:
             syslog.syslog('serve_password: empty ip/password[%s/%s] received from savepassword' % (ip, password))
             return
+        syslog.syslog('serve_password: password saved for VM IP %s' % ip)
         setPassword(ip, password)
         savePasswordFile()
         return
@@ -162,7 +168,7 @@ class PasswordRequestHandler(BaseHTTPRequestHandler):
 def serve(HandlerClass = PasswordRequestHandler,
           ServerClass = ThreadedHTTPServer):
 
-    listeningAddress = '127.0.0.1'
+    global listeningAddress
     if len(sys.argv) > 1:
         listeningAddress = sys.argv[1]
 

@@ -14,53 +14,17 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-package com.cloud.user;
 
-import java.util.Date;
+package com.cloud.upgrade.dao;
 
-import org.apache.cloudstack.api.InternalIdentity;
+import org.apache.log4j.Logger;
 
-public interface UserAccount extends InternalIdentity {
+public class Upgrade443to450 extends Upgrade442to450 implements DbUpgrade {
+
+    final static Logger s_logger = Logger.getLogger(Upgrade443to450.class);
+
     @Override
-    long getId();
-
-    String getUsername();
-
-    String getPassword();
-
-    String getFirstname();
-
-    String getLastname();
-
-    long getAccountId();
-
-    String getEmail();
-
-    String getState();
-
-    String getApiKey();
-
-    String getSecretKey();
-
-    Date getCreated();
-
-    Date getRemoved();
-
-    String getAccountName();
-
-    short getType();
-
-    Long getDomainId();
-
-    String getAccountState();
-
-    String getTimezone();
-
-    String getRegistrationToken();
-
-    boolean isRegistered();
-
-    int getLoginAttempts();
-
-    public User.Source getSource();
+    public String[] getUpgradableVersionRange() {
+        return new String[] {"4.4.3", "4.5.0"};
+    }
 }

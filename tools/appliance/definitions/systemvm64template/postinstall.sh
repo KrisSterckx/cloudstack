@@ -49,7 +49,7 @@ install_packages() {
   # nfs client
   apt-get --no-install-recommends -q -y --force-yes install nfs-common
   # nfs irqbalance
-  apt-get --no-install-recommends -q -y --force-yes install irqbalance
+  apt-get --no-install-recommends -q -y --force-yes -t wheezy-backports install irqbalance
 
   # cifs client
   apt-get --no-install-recommends -q -y --force-yes install samba-common
@@ -247,7 +247,7 @@ configure_services() {
   snapshot_dir="/opt/cloudstack*"
   cd /opt
   wget --no-check-certificate $snapshot_url -O cloudstack.tar.gz
-  tar -zxvf cloudstack.tar.gz
+  tar -zxvf cloudstack.tar.gz --wildcards cloudstack*/systemvm
   cp -rv $snapshot_dir/systemvm/patches/debian/config/* /
   cp -rv $snapshot_dir/systemvm/patches/debian/vpn/* /
   mkdir -p /usr/share/cloud/

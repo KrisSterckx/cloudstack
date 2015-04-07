@@ -89,6 +89,7 @@ fi
 set -e
 
 # Export for KVM
+rm -f raw.img
 vboxmanage internalcommands converttoraw -format vdi "$hdd_path" raw.img
 set +e
 qemu-img convert -o compat=0.10 -f raw -c -O qcow2 raw.img $appliance-$branch-kvm.qcow2
@@ -120,4 +121,5 @@ zip $appliance-$branch-hyperv.vhd.zip $appliance-$branch-hyperv.vhd
 echo "$appliance exported for HyperV: dist/$appliance-$branch-hyperv.vhd"
 
 mv *-hyperv.vhd *-hyperv.vhd.zip *.bz2 *.ova dist/
+md5sum dist/* > dist/md5sum.txt
 
