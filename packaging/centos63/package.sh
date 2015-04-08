@@ -119,7 +119,7 @@ elif [ $# -gt 0 ] ; then
             packageval=$2
             echo "$packageval"
             if [ "$packageval" == "oss" -o "$packageval" == "OSS" ] ; then
-                packageval = ""
+                packageval=""
             elif [ "$packageval" == "noredist" -o "$packageval" == "NOREDIST" ] ; then
                 packageval="noredist"
             else
