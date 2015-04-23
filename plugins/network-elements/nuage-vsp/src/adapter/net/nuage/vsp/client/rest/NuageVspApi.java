@@ -70,6 +70,8 @@ public class NuageVspApi {
 
     private static long delayFactor = 2;
 
+    public static int s_resourceNotFoundErrorCode = 200;
+
     public static int s_noChangeInEntityErrorCode = 2039;
 
     public static int s_duplicateAclPriority = 2591;
@@ -409,9 +411,13 @@ public class NuageVspApi {
     private static String parseHttpResponse(HttpResponse httpResponse, String entityType, RequestType type) throws Exception {
         StringBuffer jsonResult = new StringBuffer();
 
+        getJsonFromResponse(httpResponse, jsonResult);
         if (httpResponse.getStatusLine().getStatusCode() >= 402 && httpResponse.getStatusLine().getStatusCode() <= 599) {
-            getJsonFromResponse(httpResponse, jsonResult);
             Map<String, Object> error = parseJsonError(jsonResult.toString());
+            if (httpResponse.getStatusLine().getStatusCode() == 404) {
+                error.put(s_internalErrorCode, s_resourceNotFoundErrorCode);
+            }
+
             if (error.size() > 1) {
                 Integer nuageErrorCode = (Integer)error.get(s_internalErrorCode);
                 String nuageErrorDetails = (String)error.get(s_internalErrorDetails);
@@ -425,14 +431,12 @@ public class NuageVspApi {
                 throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, nuageErrorCode, nuageErrorDetails, entityType, type);
             }
         } else if (httpResponse.getStatusLine().getStatusCode() == 401) {
-            getJsonFromResponse(httpResponse, jsonResult);
             String errorMessage = "NUAGE HTTP REQUEST FAILED: HTTP Response code: " + httpResponse.getStatusLine().getStatusCode() + " : " + jsonResult;
             s_logger.trace(errorMessage);
             throw new AuthenticationException(errorMessage);
         }
 
         if (httpResponse.getStatusLine().getStatusCode() >= 200 || httpResponse.getStatusLine().getStatusCode() <= 299) {
-            getJsonFromResponse(httpResponse, jsonResult);
             s_logger.trace("NUAGE HTTP REQUEST RESULT: HTTP status : " + httpResponse.getStatusLine().getStatusCode() + " : JSON string" + jsonResult + "\n\n");
         }
         return jsonResult.toString();
@@ -457,8 +461,15 @@ public class NuageVspApi {
         JsonParser jp = factory.createJsonParser(jsonResult);
         JsonNode actualObj = mapper.readTree(jp);
         Map<String, Object> errorDetails = new HashMap<String, Object>();
-        errorDetails.put(s_internalErrorCode, actualObj.get(s_internalErrorCode).getIntValue());
-        errorDetails.put(s_internalErrorDetails, actualObj.get(s_internalErrorDetails).toString());
+
+        JsonNode internalErrorCode = actualObj.get(s_internalErrorCode);
+        JsonNode internalErrorDetails = actualObj.get(s_internalErrorDetails);
+        if (internalErrorCode != null) {
+            errorDetails.put(s_internalErrorCode, internalErrorCode.getIntValue());
+        }
+        if (internalErrorDetails != null) {
+            errorDetails.put(s_internalErrorDetails, internalErrorDetails.toString());
+        }
         return errorDetails;
     }
 
