@@ -239,17 +239,21 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
                 if (isVpc) {
                     Vpc vpcObj = _vpcDao.findById(vpcId);
+                    String vpcDomainTemplateId = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateId.key());
                     NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
-                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(), vpcObj.getUuid(), isIpAccessControlFeatureEnabled);
+                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(),
+                            vpcObj.getUuid(), isIpAccessControlFeatureEnabled, vpcDomainTemplateId);
                 } else {
                     //Create an L3 DomainTemplate
                     if (s_logger.isDebugEnabled()) {
                         s_logger.debug("Handling implement() call back for network " + network.getName() + ". Check with VSP to see if a Isolated L3 networks exist or not");
                     }
+                    String isolatedNetworkDomainTemplateId = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateId.key());
                     NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
-                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser);
+                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser,
+                            isolatedNetworkDomainTemplateId);
                 }
             } else {
                 //Create a L2 DomainTemplate
@@ -526,13 +530,27 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                             }
                         } else {
                             //get the L3 DomainTemplate with externalUuid
-                            vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, network.getUuid(),
-                                    nuageVspAPIParamsAsCmsUser);
-                            if (StringUtils.isNotBlank(vspNetworkId)) {
-                                if (s_logger.isDebugEnabled()) {
-                                    s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + network.getName() + " in CS. So, delete it");
+                            String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
+                                    network.getUuid(), NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
+                            String isolatedNetworkDomainTemplateId = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateId.key());
+                            if (domainTemplateId.equals(isolatedNetworkDomainTemplateId)) {
+                                vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, network.getUuid(),
+                                        nuageVspAPIParamsAsCmsUser);
+                                if (StringUtils.isNotBlank(vspNetworkId)) {
+                                    if (s_logger.isDebugEnabled()) {
+                                        s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + network.getName() + " in CS. So, delete it");
+                                    }
+                                    NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
                                 }
-                                NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                            } else {
+                                vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, network.getUuid(),
+                                        nuageVspAPIParamsAsCmsUser);
+                                if (StringUtils.isNotBlank(vspNetworkId)) {
+                                    if (s_logger.isDebugEnabled()) {
+                                        s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + network.getName() + " in CS. So, delete it");
+                                    }
+                                    NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                                }
                             }
                         }
                     } else {

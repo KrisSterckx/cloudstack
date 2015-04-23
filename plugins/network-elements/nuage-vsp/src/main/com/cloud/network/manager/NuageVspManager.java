@@ -59,6 +59,15 @@ public interface NuageVspManager extends PluggableService {
     static final ConfigKey<String> NuageVspConfigGateway = new ConfigKey<String>(String.class, "nuagevsp.configure.gateway.systemid", "Advanced", "",
             "Defines the systemID of the gateway configured in VSP", true, Scope.Global, null);
 
+    static final ConfigKey<String> NuageVspSharedNetworkDomainTemplateId = new ConfigKey<String>(String.class, "nuagevsp.sharedntwk.domaintemplate.id",
+            "Advanced", "", "Defines if NuageVsp plugin needs to use pre created Domain Template configured in VSP for shared networks", true, Scope.Global, null);
+
+    static final ConfigKey<String> NuageVspVpcDomainTemplateId = new ConfigKey<String>(String.class, "nuagevsp.vpc.domaintemplate.id",
+            "Advanced", "", "Defines if NuageVsp plugin needs to use pre created Domain Template configured in VSP for VPCs", true, Scope.Global, null);
+
+    static final ConfigKey<String> NuageVspIsolatedNetworkDomainTemplateId = new ConfigKey<String>(String.class, "nuagevsp.isolatedntwk.domaintemplate.id",
+            "Advanced", "", "Defines if NuageVsp plugin needs to use pre created Domain Template configured in VSP for isolated networks", true, Scope.Global, null);
+
     public NuageVspDeviceVO addNuageVspDevice(AddNuageVspDeviceCmd cmd);
 
     public NuageVspDeviceVO updateNuageVspDevice(UpdateNuageVspDeviceCmd cmd);
