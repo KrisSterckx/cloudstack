@@ -36,7 +36,7 @@ public enum NuageVspEntity {
                     NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_LOCATION_ID, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_NETWORK_TYPE, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_NETWORK_ID,
                     NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_PRIORITY, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_PROTOCOL, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_SOURCE_PORT,
                     NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_ADDR_OVERRIDE, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_DSCP, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_DESCRIPTION),
-    DOMAIN("domains", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.DOMAIN_NAME, NuageVspAttribute.DOMAIN_DESCRIPTION),
+    DOMAIN("domains", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.DOMAIN_NAME, NuageVspAttribute.DOMAIN_DESCRIPTION, NuageVspAttribute.DOMAIN_TEMPLATE_ID),
     ZONE("zones", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.ZONE_NAME, NuageVspAttribute.ZONE_DESCRIPTION),
     SUBNET("subnets", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.SUBNET_NAME, NuageVspAttribute.SUBNET_DESCRIPTION, NuageVspAttribute.SUBNET_ADDRESS,
             NuageVspAttribute.SUBNET_NETMASK, NuageVspAttribute.SUBNET_GATEWAY),

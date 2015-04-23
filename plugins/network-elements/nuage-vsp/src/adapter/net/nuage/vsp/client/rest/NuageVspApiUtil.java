@@ -379,27 +379,27 @@ public class NuageVspApiUtil {
         }
     }
 
-    public static String createIsolatedL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
+    public static void createSharedNetworkWithDefaultACLs(String domainUuid, String enterpriseId, String networkName, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
-        return createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRange,
-                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled);
+            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+        s_logger.debug("Create or find a subnet associated to shared network " + networkName + " in VSP");
+        createNetworkConfigurationWithDefaultACLS(true, false, domainUuid, networkName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
+                gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId);
     }
 
-    public static String createVPCOrL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
+    public static void createIsolatedL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
+            Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
+            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+        createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRange,
+                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId);
+    }
+
+    public static void createVPCOrL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled) throws NuageVspAPIUtilException {
+            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled, String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
 
         s_logger.debug("Create or find a VPC/Isolated network associated to network " + networkName + " in VSP");
-        String domainTemplateId = null;
-        String domainId = null;
-        String zoneId = null;
-        String subnetId = null;
-        StringBuffer errorMessage = new StringBuffer();
         boolean isVpc = StringUtils.isNotBlank(vpcName);
-
-        String debugMessage = "This is a " + (isVpc ? "VPC" : "Isolated") + " Network.";
-        //Check if L3 DominTemplate exists
         String vpcOrSubnetUuid;
         String vpcOrSubnetName;
         if (isVpc) {
@@ -409,120 +409,63 @@ public class NuageVspApiUtil {
             vpcOrSubnetUuid = networkUuid;
             vpcOrSubnetName = networkName;
         }
-        domainTemplateId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, vpcOrSubnetUuid, nuageVspAPIParams);
-        if (StringUtils.isNotBlank(domainTemplateId)) {
-            s_logger.debug(debugMessage + " Domain Template " + domainTemplateId + " already exists for network " + networkName + " in VSP");
-            domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, vpcOrSubnetUuid, nuageVspAPIParams);
+
+        createNetworkConfigurationWithDefaultACLS(isVpc, isVpc, vpcOrSubnetUuid, vpcOrSubnetName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
+                gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId);
+    }
+
+    private static void createNetworkConfigurationWithDefaultACLS(boolean reuseDomain, boolean isVpc, String uuid, String name, String enterpriseId, String networkName, String netmask,
+              String address, String gateway, Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String> ipAddressRange,
+              boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, Boolean isIpAccessControlFeatureEnabled,
+              String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+        String domainTemplateId = null;
+        String domainId = null;
+        StringBuffer errorMessage = new StringBuffer();
+        String debugMessage = "This is a " + (reuseDomain ? (isVpc ? "VPC" : "Shared") : "Isolated") + " Network.";
+
+        if (StringUtils.isNotBlank(preConfiguredDomainTemplateId)) {
+            domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
             if (StringUtils.isNotBlank(domainId)) {
-                subnetId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.SUBNET, networkUuid, nuageVspAPIParams);
-                if ((!isVpc) && StringUtils.isBlank(subnetId)) {
-                    errorMessage.append(debugMessage + " and Subnet is not found under the Domain ").append(domainId).append(" for network ").append(networkName)
-                            .append(" in VSP. There is a network sync issue with VSD");
-                } else if (isVpc) {
-                    zoneId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, vpcOrSubnetUuid, nuageVspAPIParams);
-                    if (StringUtils.isBlank(zoneId)) {
-                        errorMessage.append(debugMessage + " and Zone corresponding to network ").append(vpcOrSubnetUuid)
-                                .append(" does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
-                    } else {
-                        if (StringUtils.isBlank(subnetId)) {
-                            subnetId = createL3Subnet(networkName, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, nuageVspAPIParams, zoneId, subnetId,
-                                    errorMessage, debugMessage);
-                        } else {
-                            s_logger.debug(debugMessage + " Subnet " + subnetId + " already exists for network " + networkName + " in VSP");
-                        }
-                    }
-                } else {
-                    s_logger.debug(debugMessage + " Domain and Subnet " + subnetId + " already exists for network " + networkName + " in VSP");
-                }
+                validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid, netmask, address, gateway, dnsServers,
+                        ipAddressRange, nuageVspAPIParams);
             } else {
-                errorMessage.append(debugMessage + " Domain is not found under the DomainTemplate ").append(domainTemplateId).append(" for network ").append(networkName)
-                        .append(" in VSP. There is a network sync issue with VSD");
+                createDomainZoneAndSubnet(reuseDomain, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                        defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
             }
         } else {
-
-            Map<String, Object> domainTemplateEntity = new HashMap<String, Object>();
-            domainTemplateEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_NAME.getAttributeName(), vpcOrSubnetUuid);
-            domainTemplateEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_DESCRIPTION.getAttributeName(), vpcOrSubnetName);
-            domainTemplateEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
-
-            try {
-                String domainTemplateJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                        NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
-                s_logger.debug(debugMessage + " Created DomainTemplate for network " + networkName + " in VSP . Response from VSP is " + domainTemplateJson);
-                domainTemplateId = getEntityId(domainTemplateJson, NuageVspEntity.DOMAIN_TEMPLATE);
-            } catch (Exception exception) {
-                String error = debugMessage + " Failed to create DomainTemplate for network " + networkName + ".  Json response from VSP REST API is  " + exception.getMessage();
-                s_logger.error(error, exception);
-                throw new NuageVspAPIUtilException(error);
-            }
-
-            try {
-                if (errorMessage.length() == 0) {
-                    //Now instantiate the domain template
-                    Map<String, Object> domainEntity = new HashMap<String, Object>();
-                    domainEntity.put(NuageVspAttribute.DOMAIN_NAME.getAttributeName(), vpcOrSubnetUuid);
-                    domainEntity.put(NuageVspAttribute.DOMAIN_DESCRIPTION.getAttributeName(), vpcOrSubnetName);
-                    domainEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
-                    domainEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), domainTemplateId);
-
-                    String domainJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                            NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, domainEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
-                    s_logger.debug(debugMessage + " Created Domain for network " + networkName + " in VSP . Response from VSP is " + domainJson);
-                    domainId = getEntityId(domainJson, NuageVspEntity.DOMAIN);
+            domainTemplateId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, uuid, nuageVspAPIParams);
+            if (StringUtils.isNotBlank(domainTemplateId)) {
+                s_logger.debug(debugMessage + " Domain Template " + domainTemplateId + " already exists for network " + networkName + " in VSP");
+                domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
+                if (StringUtils.isNotBlank(domainId)) {
+                    validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid,
+                            netmask, address, gateway, dnsServers, ipAddressRange, nuageVspAPIParams);
+                } else {
+                    errorMessage.append(debugMessage).append(" Domain is not found under the DomainTemplate ").append(domainTemplateId).append(" for network ").append(networkName)
+                            .append(" in VSP. There is a network sync issue with VSD");
                 }
-            } catch (Exception exception) {
-                errorMessage.append(debugMessage + " Failed to instantiate DomainTemplate for network ").append(networkName).append(".  Json response from VSP REST API is  ")
-                        .append(exception.getMessage());
-            }
+            } else {
 
-            //Attach Domain with the Gateway service
-            attachDomainWithGatewayService(enterpriseId, networkName, gatewaySystemIds, nuageVspAPIParams, domainId, errorMessage);
+                Map<String, Object> domainTemplateEntity = new HashMap<String, Object>();
+                domainTemplateEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_NAME.getAttributeName(), uuid);
+                domainTemplateEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_DESCRIPTION.getAttributeName(), name);
+                domainTemplateEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), uuid);
 
-            //Create default ingress and egress ACLs
-            errorMessage = createDefaultIngressAndEgressAcls(isVpc, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
-                    new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
-                //Create the Default FIP ACL
-            if (isIpAccessControlFeatureEnabled && isVpc) {
                 try {
-                    if (errorMessage.length() == 0) {
-                        createDefaultFIPACLTemplate(vpcOrSubnetUuid, domainId, NuageVspEntity.DOMAIN, nuageVspAPIParams);
-                    }
+                    String domainTemplateJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                            NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateEntity, null, nuageVspAPIParams.getRestRelativePath(),
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                    s_logger.debug(debugMessage + " Created DomainTemplate for network " + networkName + " in VSP . Response from VSP is " + domainTemplateJson);
+                    domainTemplateId = getEntityId(domainTemplateJson, NuageVspEntity.DOMAIN_TEMPLATE);
                 } catch (Exception exception) {
-                    errorMessage.append("Failed to create default Egress ACL for network ").append(vpcOrSubnetUuid).append(".  Json response from VSP REST API is  ")
-                            .append(exception.getMessage());
+                    String error = debugMessage + " Failed to create DomainTemplate for network " + networkName + ".  Json response from VSP REST API is  " + exception.getMessage();
+                    s_logger.error(error, exception);
+                    throw new NuageVspAPIUtilException(error);
                 }
-            }
-            try {
-                if (errorMessage.length() == 0) {
-                    //Now create the Zone under the domain
-                    Map<String, Object> zoneEntity = new HashMap<String, Object>();
-                    zoneEntity.put(NuageVspAttribute.ZONE_NAME.getAttributeName(), NuageVspConstants.ZONE_NAME + "_" + vpcOrSubnetUuid);
-                    zoneEntity.put(NuageVspAttribute.ZONE_DESCRIPTION.getAttributeName(), vpcOrSubnetName);
-                    zoneEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
 
-                    String zoneJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                            NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, zoneEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                            nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
-                    zoneId = getEntityId(zoneJson, NuageVspEntity.ZONE);
-                    s_logger.debug(debugMessage + "Created Zone for network " + networkName + " in VSP . Response from VSP is " + zoneJson);
-                    //set permission to use the Zone
-                    if (groupId != null) {
-                        try {
-                            addPermission(NuageVspEntity.ZONE, zoneId, groupId, nuageVspAPIParams);
-                        } catch (Exception e) {
-                            errorMessage.append(e.getMessage());
-                        }
-                    }
-                }
-            } catch (Exception exception) {
-                errorMessage.append(debugMessage + " Failed to create Zone for network ").append(networkName).append(".  Json response from VSP REST API is  ")
-                        .append(exception.getMessage());
+                createDomainZoneAndSubnet(isVpc, isIpAccessControlFeatureEnabled, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                        defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
             }
-
-            subnetId = createL3Subnet(networkName, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, nuageVspAPIParams, zoneId, subnetId, errorMessage,
-                    debugMessage);
         }
 
         if (errorMessage.length() != 0) {
@@ -530,8 +473,106 @@ public class NuageVspApiUtil {
             cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateId, nuageVspAPIParams);
             throw new NuageVspAPIUtilException(errorMessage.toString());
         }
+    }
 
-        return subnetId;
+    private static void validateDomain(boolean reuseDomain, StringBuffer errorMessage, String debugMessage, String domainId, String networkUuid, String networkName, String zoneUuid,
+                                       String netmask, String address, String gateway, List<String> dnsServers, Collection<String> ipAddressRange, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        String subnetId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.SUBNET, networkUuid, nuageVspAPIParams);
+        if ((!reuseDomain) && StringUtils.isBlank(subnetId)) {
+            errorMessage.append(debugMessage).append(" and Subnet is not found under the Domain ").append(domainId).append(" for network ").append(networkName)
+                    .append(" in VSP. There is a network sync issue with VSD");
+        } else if (reuseDomain) {
+            String zoneId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, zoneUuid, nuageVspAPIParams);
+            if (StringUtils.isBlank(zoneId)) {
+                errorMessage.append(debugMessage).append(" and Zone corresponding to network ").append(zoneUuid)
+                        .append(" does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+            } else {
+                if (StringUtils.isBlank(subnetId)) {
+                    createL3Subnet(networkName, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, nuageVspAPIParams, zoneId, subnetId,
+                            errorMessage, debugMessage);
+                } else {
+                    s_logger.debug(debugMessage + " Subnet " + subnetId + " already exists for network " + networkName + " in VSP");
+                }
+            }
+        } else {
+            s_logger.debug(debugMessage + " Domain and Subnet " + subnetId + " already exists for network " + networkName + " in VSP");
+        }
+    }
+
+    private static void createDomainZoneAndSubnet(boolean reuseDomain, boolean isIpAccessControlFeatureEnabled, String domainTemplateId, String networkName, String vpcOrSubnetUuid,
+                                                  String vpcOrSubnetName, Collection<String> gatewaySystemIds, boolean defaultCSEgressPolicy, JSONArray groupId,
+                                                  String netmask, String address, String gateway, List<String> dnsServers, Collection<String> ipAddressRange, String networkUuid,
+                                                  String enterpriseId, StringBuffer errorMessage, String debugMessage, NuageVspAPIParams nuageVspAPIParams) {
+
+        String domainId = null;
+        try {
+            if (errorMessage.length() == 0) {
+                //Now instantiate the domain template
+                Map<String, Object> domainEntity = new HashMap<String, Object>();
+                domainEntity.put(NuageVspAttribute.DOMAIN_NAME.getAttributeName(), vpcOrSubnetUuid);
+                domainEntity.put(NuageVspAttribute.DOMAIN_DESCRIPTION.getAttributeName(), vpcOrSubnetName);
+                domainEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
+                domainEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), domainTemplateId);
+
+                String domainJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                        NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, domainEntity, null, nuageVspAPIParams.getRestRelativePath(),
+                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                s_logger.debug(debugMessage + " Created Domain for network " + networkName + " in VSP . Response from VSP is " + domainJson);
+                domainId = getEntityId(domainJson, NuageVspEntity.DOMAIN);
+            }
+        } catch (Exception exception) {
+            errorMessage.append(debugMessage).append(" Failed to instantiate DomainTemplate for network ").append(networkName).append(".  Json response from VSP REST API is  ")
+                    .append(exception.getMessage());
+        }
+
+        //Attach Domain with the Gateway service
+        attachDomainWithGatewayService(enterpriseId, networkName, gatewaySystemIds, nuageVspAPIParams, domainId, errorMessage);
+
+        //Create default ingress and egress ACLs
+        errorMessage = createDefaultIngressAndEgressAcls(reuseDomain, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
+                new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
+        //Create the Default FIP ACL
+        if (isIpAccessControlFeatureEnabled && reuseDomain) {
+            try {
+                if (errorMessage.length() == 0) {
+                    createDefaultFIPACLTemplate(vpcOrSubnetUuid, domainId, NuageVspEntity.DOMAIN, nuageVspAPIParams);
+                }
+            } catch (Exception exception) {
+                errorMessage.append("Failed to create default Egress ACL for network ").append(vpcOrSubnetUuid).append(".  Json response from VSP REST API is  ")
+                        .append(exception.getMessage());
+            }
+        }
+
+        String zoneId = null;
+        try {
+            if (errorMessage.length() == 0) {
+                //Now create the Zone under the domain
+                Map<String, Object> zoneEntity = new HashMap<String, Object>();
+                zoneEntity.put(NuageVspAttribute.ZONE_NAME.getAttributeName(), NuageVspConstants.ZONE_NAME + "_" + vpcOrSubnetUuid);
+                zoneEntity.put(NuageVspAttribute.ZONE_DESCRIPTION.getAttributeName(), vpcOrSubnetName);
+                zoneEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
+
+                String zoneJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                        NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, zoneEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
+                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                zoneId = getEntityId(zoneJson, NuageVspEntity.ZONE);
+                s_logger.debug(debugMessage + "Created Zone for network " + networkName + " in VSP . Response from VSP is " + zoneJson);
+                //set permission to use the Zone
+                if (groupId != null) {
+                    try {
+                        addPermission(NuageVspEntity.ZONE, zoneId, groupId, nuageVspAPIParams);
+                    } catch (Exception e) {
+                        errorMessage.append(e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception exception) {
+            errorMessage.append(debugMessage).append(" Failed to create Zone for network ").append(networkName).append(".  Json response from VSP REST API is  ")
+                    .append(exception.getMessage());
+        }
+
+        createL3Subnet(networkName, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, nuageVspAPIParams, zoneId, null, errorMessage,
+                debugMessage);
     }
 
     private static void attachDomainWithGatewayService(String enterpriseId, String networkName, Collection<String> gatewaySystemIds, NuageVspAPIParams nuageVspAPIParams,
@@ -820,12 +861,12 @@ public class NuageVspApiUtil {
         return l2DomainId;
     }
 
-    public static StringBuffer createDefaultIngressAndEgressAcls(boolean isVpc, String vpcOrSubnetUuid, boolean defaultCSEgressPolicy, NuageVspEntity nuageVspEntity, String nuageVspEntityId,
+    public static StringBuffer createDefaultIngressAndEgressAcls(boolean reuseDomain, String vpcOrSubnetUuid, boolean defaultCSEgressPolicy, NuageVspEntity nuageVspEntity, String nuageVspEntityId,
             StringBuffer errorMessage, String ingressACLTempId, Map<Integer, Map<String, Object>> defaultVspIngressAclEntries, String egressACLTempId,
             Map<Integer, Map<String, Object>> defaultVspEgressAclEntries, String networkName, NuageVspAPIParams nuageVspAPIParams) {
         try {
             if (errorMessage.length() == 0) {
-                createDefaultIngressAcl(isVpc, vpcOrSubnetUuid, nuageVspEntity, nuageVspEntityId, defaultCSEgressPolicy, ingressACLTempId, defaultVspIngressAclEntries,
+                createDefaultIngressAcl(vpcOrSubnetUuid, nuageVspEntity, nuageVspEntityId, defaultCSEgressPolicy, ingressACLTempId, defaultVspIngressAclEntries,
                         networkName, nuageVspAPIParams);
             }
         } catch (Exception exception) {
@@ -835,7 +876,7 @@ public class NuageVspApiUtil {
 
         try {
             if (errorMessage.length() == 0) {
-                createDefaultEgressAcl(isVpc, vpcOrSubnetUuid, nuageVspEntity, nuageVspEntityId, defaultCSEgressPolicy, egressACLTempId, defaultVspEgressAclEntries, networkName,
+                createDefaultEgressAcl(reuseDomain, vpcOrSubnetUuid, nuageVspEntity, nuageVspEntityId, defaultCSEgressPolicy, egressACLTempId, defaultVspEgressAclEntries, networkName,
                         nuageVspAPIParams);
             }
         } catch (Exception exception) {
@@ -1179,7 +1220,7 @@ public class NuageVspApiUtil {
         }
     }
 
-    private static void createDefaultEgressAcl(boolean isVpc, String vpcOrSubnetUuid, NuageVspEntity domainType, String domainId, boolean defaultCSEgressPolicy,
+    private static void createDefaultEgressAcl(boolean reuseDomain, String vpcOrSubnetUuid, NuageVspEntity domainType, String domainId, boolean defaultCSEgressPolicy,
             String egressACLTempId, Map<Integer, Map<String, Object>> defaultVspEgressAclEntries, String networkName, NuageVspAPIParams nuageVspAPIParams) throws Exception {
         //Now add Egress ACL template
         if (egressACLTempId == null) {
@@ -1205,7 +1246,7 @@ public class NuageVspApiUtil {
         }
 
         if (defaultCSEgressPolicy) {
-            if (isVpc) {
+            if (reuseDomain) {
                 if (!defaultVspEgressAclEntries.containsKey(NuageVspConstants.DEFAULT_DOMAIN_BLOCK_ACL_PRIORITY)) {
                     createDefaultACLEntry(vpcOrSubnetUuid, egressACLTempId, false, false, NuageVspConstants.ANY, NuageVspConstants.ACL_ACTION_DROP,
                             NuageVspConstants.DEFAULT_DOMAIN_BLOCK_ACL_PRIORITY, NuageVspConstants.DEFAULT_DOMAIN_BLOCK_ACL, NuageVspConstants.ANY, null,
@@ -1221,7 +1262,7 @@ public class NuageVspApiUtil {
         }
     }
 
-    private static void createDefaultIngressAcl(boolean isVpc, String vpcOrSubnetUuid, NuageVspEntity domainType, String domainId, boolean defaultCSEgressPolicy,
+    private static void createDefaultIngressAcl(String vpcOrSubnetUuid, NuageVspEntity domainType, String domainId, boolean defaultCSEgressPolicy,
             String ingressACLTempId, Map<Integer, Map<String, Object>> defaultVspIngressAclEntries, String networkName, NuageVspAPIParams nuageVspAPIParams) throws Exception {
         //Now add Ingress ACL template
         if (ingressACLTempId == null) {
@@ -1644,6 +1685,12 @@ public class NuageVspApiUtil {
                 + ((filterAttrValue instanceof String) ? "'" + filterAttrValue + "'" : filterAttrValue), nuageVspAPIParams);
     }
 
+    public static <T> T findFieldValueByExternalUuid(NuageVspEntity entityType, String entityId, NuageVspEntity childEntityType, String externalId,
+                                                     String fieldName, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        String jsonString = findEntityUsingFilter(entityType, entityId, childEntityType, NuageVspAttribute.EXTERNAL_ID.getAttributeName(), externalId, nuageVspAPIParams);
+        return (T) getFieldValue(jsonString, childEntityType, fieldName);
+    }
+
     public static String findEntityIdByExternalUuid(NuageVspEntity entityType, String entityId, NuageVspEntity childEntityType, String externalId,
             NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
         String jsonString = findEntityUsingFilter(entityType, entityId, childEntityType, NuageVspAttribute.EXTERNAL_ID.getAttributeName(), externalId, nuageVspAPIParams);
@@ -1671,6 +1718,15 @@ public class NuageVspApiUtil {
             id = (String)entityDetails.iterator().next().get(NuageVspAttribute.ID.getAttributeName());
         }
         return id;
+    }
+
+    public static <T> T getFieldValue(String jsonString, NuageVspEntity entityType, String fieldName) throws NuageVspAPIUtilException  {
+        T fieldValue = null;
+        if (StringUtils.isNotBlank(jsonString)) {
+            List<Map<String, Object>> entityDetails = parseJson(jsonString, entityType);
+            fieldValue = (T) entityDetails.iterator().next().get(fieldName);
+        }
+        return fieldValue;
     }
 
     public static boolean cleanUpVspStaleObjects(NuageVspEntity entityToBeCleaned, String entityIDToBeCleaned, NuageVspAPIParams nuageVspAPIParams, List<Integer> retryNuageErrorCodes) {
