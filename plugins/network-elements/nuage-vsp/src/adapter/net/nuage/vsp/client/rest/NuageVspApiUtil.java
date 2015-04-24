@@ -381,22 +381,22 @@ public class NuageVspApiUtil {
 
     public static void createSharedNetworkWithDefaultACLs(String domainUuid, String enterpriseId, String networkName, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         s_logger.debug("Create or find a subnet associated to shared network " + networkName + " in VSP");
         createNetworkConfigurationWithDefaultACLS(true, false, domainUuid, networkName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
-                gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId);
+                gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
     }
 
     public static void createIsolatedL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRange,
-                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId);
+                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
     }
 
     public static void createVPCOrL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled, String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
 
         s_logger.debug("Create or find a VPC/Isolated network associated to network " + networkName + " in VSP");
         boolean isVpc = StringUtils.isNotBlank(vpcName);
@@ -411,17 +411,21 @@ public class NuageVspApiUtil {
         }
 
         createNetworkConfigurationWithDefaultACLS(isVpc, isVpc, vpcOrSubnetUuid, vpcOrSubnetName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
-                gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId);
+                gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
     }
 
     private static void createNetworkConfigurationWithDefaultACLS(boolean reuseDomain, boolean isVpc, String uuid, String name, String enterpriseId, String networkName, String netmask,
               String address, String gateway, Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String> ipAddressRange,
               boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, Boolean isIpAccessControlFeatureEnabled,
-              String preConfiguredDomainTemplateId) throws NuageVspAPIUtilException {
+              String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         String domainTemplateId = null;
         String domainId = null;
         StringBuffer errorMessage = new StringBuffer();
         String debugMessage = "This is a " + (reuseDomain ? (isVpc ? "VPC" : "Shared") : "Isolated") + " Network.";
+
+        String preConfiguredDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
+                "name", preConfiguredDomainTemplateName, nuageVspAPIParams);
+        String preConfiguredDomainTemplateId = NuageVspApiUtil.getEntityId(preConfiguredDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
 
         if (StringUtils.isNotBlank(preConfiguredDomainTemplateId)) {
             domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);

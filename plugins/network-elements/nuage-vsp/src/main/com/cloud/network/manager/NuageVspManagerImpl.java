@@ -590,6 +590,6 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Override
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspIpAccessControl, NuageVspConfigGateway,
-                NuageVspSharedNetworkDomainTemplateId, NuageVspVpcDomainTemplateId, NuageVspIsolatedNetworkDomainTemplateId};
+                NuageVspSharedNetworkDomainTemplateName, NuageVspVpcDomainTemplateName, NuageVspIsolatedNetworkDomainTemplateName};
     }
 }
