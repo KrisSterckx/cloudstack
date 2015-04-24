@@ -191,7 +191,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     @Override
     protected boolean canHandle(NetworkOffering offering, final NetworkType networkType, final PhysicalNetwork physicalNetwork) {
         // This guru handles only Guest Isolated network that supports Source nat service
-        if (networkType == NetworkType.Advanced && isMyTrafficType(offering.getTrafficType()) && offering.getGuestType() == Network.GuestType.Isolated
+        if (networkType == NetworkType.Advanced && isMyTrafficType(offering.getTrafficType()) && (offering.getGuestType() == Network.GuestType.Isolated || offering.getGuestType() == Network.GuestType.Shared)
                 && isMyIsolationMethod(physicalNetwork)) {
             return true;
         } else {
@@ -232,7 +232,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             //Since this is a new network now create a L2domaitemplate and instantiate it and add the subnet
             //or create a L3 DomainTemplate and instantiate it
             if (isVpc || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.SourceNat)
-                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat)) {
+                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat) || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.Connectivity)) {
                 //get the details of DNS server setting to be set on the network
                 List<String> dnsServers = _nuageVspManager.getDnsDetails(network);
                 List<String> gatewaySystemIds = _nuageVspManager.getGatewaySystemIds();
@@ -642,7 +642,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         long networkOfferingId = _ntwkOfferingDao.findById(network.getNetworkOfferingId()).getId();
         String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
         if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
-                || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)) {
+                || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
+                || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.Connectivity)) {
             Long vpcId = network.getVpcId();
             boolean isVpc = (vpcId != null);
             if (isVpc) {

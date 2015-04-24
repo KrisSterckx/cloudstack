@@ -135,6 +135,7 @@ import com.cloud.user.dao.AccountDao;
 import com.cloud.user.dao.UserDao;
 import com.cloud.utils.Journal;
 import com.cloud.utils.Pair;
+import com.cloud.utils.StringUtils;
 import com.cloud.utils.Ternary;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.db.DB;
@@ -1862,14 +1863,19 @@ public class IpAddressManagerImpl extends ManagerBase implements IpAddressManage
                 nic.setIp4Address(ip.getAddress().toString());
                 nic.setGateway(ip.getGateway());
                 nic.setNetmask(ip.getNetmask());
-                nic.setIsolationUri(IsolationType.Vlan.toUri(ip.getVlanTag()));
+                if (StringUtils.isNotBlank(ip.getVlanTag())) {
+                    nic.setIsolationUri(IsolationType.Vlan.toUri(ip.getVlanTag()));
+                }
                 //nic.setBroadcastType(BroadcastDomainType.Vlan);
                 //nic.setBroadcastUri(BroadcastDomainType.Vlan.toUri(ip.getVlanTag()));
-                nic.setBroadcastType(network.getBroadcastDomainType());
-                        if (network.getBroadcastUri() != null)
-                nic.setBroadcastUri(network.getBroadcastUri());
-                        else
-                            nic.setBroadcastUri(BroadcastDomainType.Vlan.toUri(ip.getVlanTag()));
+
+                if (network.getBroadcastUri() != null)
+                    nic.setBroadcastUri(network.getBroadcastUri());
+                else {
+                    if (StringUtils.isNotBlank(ip.getVlanTag())) {
+                        nic.setBroadcastUri(BroadcastDomainType.Vlan.toUri(ip.getVlanTag()));
+                    }
+                }
                 nic.setFormat(AddressFormat.Ip4);
                 nic.setReservationId(String.valueOf(ip.getVlanTag()));
                 nic.setMacAddress(ip.getMacAddress());

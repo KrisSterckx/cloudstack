@@ -1096,6 +1096,11 @@ public class ConfigurationServerImpl extends ManagerBase implements Configuratio
         defaultSharedSGNetworkOfferingProviders.put(Service.UserData, Provider.VirtualRouter);
         defaultSharedSGNetworkOfferingProviders.put(Service.SecurityGroup, Provider.SecurityGroupProvider);
 
+        final Map<Network.Service, Network.Provider> defaultNuageVspSharedSGNetworkOfferingProviders = new HashMap<Network.Service, Network.Provider>();
+        defaultNuageVspSharedSGNetworkOfferingProviders.put(Service.Dhcp, Provider.NuageVsp);
+        defaultNuageVspSharedSGNetworkOfferingProviders.put(Service.SecurityGroup, Provider.NuageVsp);
+        defaultNuageVspSharedSGNetworkOfferingProviders.put(Service.Connectivity, Provider.NuageVsp);
+
         final Map<Network.Service, Network.Provider> defaultIsolatedSourceNatEnabledNetworkOfferingProviders = new HashMap<Network.Service, Network.Provider>();
         defaultIsolatedSourceNatEnabledNetworkOfferingProviders.put(Service.Dhcp, Provider.VirtualRouter);
         defaultIsolatedSourceNatEnabledNetworkOfferingProviders.put(Service.Dns, Provider.VirtualRouter);
@@ -1134,6 +1139,21 @@ public class ConfigurationServerImpl extends ManagerBase implements Configuratio
                             new NetworkOfferingServiceMapVO(defaultSharedSGNetworkOffering.getId(), service, defaultSharedSGNetworkOfferingProviders.get(service));
                     _ntwkOfferingServiceMapDao.persist(offService);
                     s_logger.trace("Added service for the network offering: " + offService);
+                }
+
+                //NuageVsp offering
+                NetworkOfferingVO defaultNuageVspSharedSGNetworkOffering =
+                        new NetworkOfferingVO(NetworkOffering.DefaultNuageVspSharedNetworkOfferingWithSGService, "Offering for NuageVsp Shared Security group enabled networks",
+                                TrafficType.Guest, false, false, null, null, true, Availability.Optional, null, Network.GuestType.Shared, true, true, false, false, false);
+
+                defaultNuageVspSharedSGNetworkOffering.setState(NetworkOffering.State.Enabled);
+                defaultNuageVspSharedSGNetworkOffering = _networkOfferingDao.persistDefaultNetworkOffering(defaultNuageVspSharedSGNetworkOffering);
+
+                for (Service service : defaultNuageVspSharedSGNetworkOfferingProviders.keySet()) {
+                    NetworkOfferingServiceMapVO offService =
+                            new NetworkOfferingServiceMapVO(defaultNuageVspSharedSGNetworkOffering.getId(), service, defaultNuageVspSharedSGNetworkOfferingProviders.get(service));
+                    _ntwkOfferingServiceMapDao.persist(offService);
+                    s_logger.trace("Added service for the NuageVsp network offering: " + offService);
                 }
 
                 // Offering #2

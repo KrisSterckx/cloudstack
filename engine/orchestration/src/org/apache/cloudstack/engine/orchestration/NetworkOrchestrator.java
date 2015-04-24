@@ -38,6 +38,7 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.network.Networks;
+
 import org.apache.log4j.Logger;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
 import org.apache.cloudstack.context.CallContext;
@@ -169,6 +170,7 @@ import com.cloud.user.ResourceLimitService;
 import com.cloud.user.User;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.Pair;
+import com.cloud.utils.StringUtils;
 import com.cloud.utils.component.AdapterBase;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
@@ -1893,7 +1895,7 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
 
         //TODO(VXLAN): Support VNI specified
         // VlanId can be specified only when network offering supports it
-        boolean vlanSpecified = (vlanId != null);
+        boolean vlanSpecified = StringUtils.isNotBlank(vlanId);
         if (vlanSpecified != ntwkOff.getSpecifyVlan()) {
             if (vlanSpecified) {
                 throw new InvalidParameterValueException("Can't specify vlan; corresponding offering says specifyVlan=false");
@@ -2033,7 +2035,7 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
                     userNetwork.setIp6Gateway(ip6Gateway);
                 }
 
-                if (vlanIdFinal != null) {
+                if (StringUtils.isNotBlank(vlanIdFinal)) {
                     if (isolatedPvlan == null) {
                         URI uri = BroadcastDomainType.fromString(vlanIdFinal);
                         userNetwork.setBroadcastUri(uri);

@@ -22,8 +22,8 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 
 import com.cloud.utils.exception.CloudRuntimeException;
-import org.apache.log4j.Logger;
 
+import org.apache.log4j.Logger;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
 
 import com.cloud.dc.DataCenter;
@@ -41,6 +41,7 @@ import com.cloud.network.IpAddressManager;
 import com.cloud.network.Ipv6AddressManager;
 import com.cloud.network.Network;
 import com.cloud.network.Network.GuestType;
+import com.cloud.network.Network.Provider;
 import com.cloud.network.Network.Service;
 import com.cloud.network.Network.State;
 import com.cloud.network.NetworkModel;
@@ -50,6 +51,7 @@ import com.cloud.network.Networks.Mode;
 import com.cloud.network.Networks.TrafficType;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.offerings.dao.NetworkOfferingDao;
+import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
 import com.cloud.user.Account;
 import com.cloud.utils.component.AdapterBase;
 import com.cloud.utils.db.DB;
@@ -99,6 +101,8 @@ public class DirectNetworkGuru extends AdapterBase implements NetworkGuru {
     NicDao _nicDao;
     @Inject
     IpAddressManager _ipAddrMgr;
+    @Inject
+    NetworkOfferingServiceMapDao _ntwkOfferingSrvcDao;
 
     private static final TrafficType[] TrafficTypes = {TrafficType.Guest};
 
@@ -119,7 +123,8 @@ public class DirectNetworkGuru extends AdapterBase implements NetworkGuru {
 
     protected boolean canHandle(NetworkOffering offering, DataCenter dc) {
         // this guru handles only Guest networks in Advance zone with source nat service disabled
-        if (dc.getNetworkType() == NetworkType.Advanced && isMyTrafficType(offering.getTrafficType()) && offering.getGuestType() == GuestType.Shared) {
+        if (dc.getNetworkType() == NetworkType.Advanced && isMyTrafficType(offering.getTrafficType()) && offering.getGuestType() == GuestType.Shared
+                && !_ntwkOfferingSrvcDao.isProviderForNetworkOffering(offering.getId(), Provider.NuageVsp)) {
             return true;
         } else {
             s_logger.trace("We only take care of Guest networks of type " + GuestType.Shared);

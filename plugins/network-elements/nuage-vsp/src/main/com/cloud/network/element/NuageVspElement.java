@@ -175,6 +175,9 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         // L3 Support : Generic
         capabilities.put(Service.Gateway, null);
 
+        // Security Group
+        capabilities.put(Service.SecurityGroup, null);
+
         // L3 Support : SourceNat
         Map<Capability, String> sourceNatCapabilities = new HashMap<Capability, String>();
         sourceNatCapabilities.put(Capability.SupportedSourceNatTypes, "perzone");
@@ -291,7 +294,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             }
             long networkOfferingId = networkOferringVO.getId();
             if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
-                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)) {
+                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
+                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.Connectivity)) {
                 attachedNetworkType = NuageVspEntity.DOMAIN;
             } else {
                 attachedNetworkType = NuageVspEntity.L2DOMAIN;
@@ -417,7 +421,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
 
     @Override
     public boolean canEnableIndividualServices() {
-        return false;
+        return true;
     }
 
     @Override
@@ -444,7 +448,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         }
 
         if (services.contains(Service.Vpn) || services.contains(Service.Dns) || services.contains(Service.Lb) || services.contains(Service.PortForwarding)
-                || services.contains(Service.SecurityGroup) || services.contains(Service.NetworkACL)) {
+                || services.contains(Service.NetworkACL)) {
             // We don't implement any of these services, and we don't
             // want anyone else to do it for us. So if these services
             // exist, we can't handle it.
@@ -536,7 +540,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 }
                 long networkOfferingId = _ntwkOfferingDao.findById(config.getNetworkOfferingId()).getId();
                 if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
-                        || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)) {
+                        || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
+                        || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.Connectivity)) {
                     attachedNetworkType = NuageVspEntity.DOMAIN;
                 } else {
                     attachedNetworkType = NuageVspEntity.L2DOMAIN;
@@ -674,7 +679,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                     }
                     long networkOfferingId = networkOferringVO.getId();
                     if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
-                            || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)) {
+                            || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
+                            || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.Connectivity)) {
                         attachedNetworkType = NuageVspEntity.DOMAIN;
                     } else {
                         attachedNetworkType = NuageVspEntity.L2DOMAIN;
