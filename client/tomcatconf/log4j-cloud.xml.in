@@ -65,7 +65,7 @@ under the License.
 
    <appender name="NUAGEVSP" class="org.apache.log4j.rolling.RollingFileAppender">
       <param name="Append" value="true"/>
-      <param name="Threshold" value="WARN"/>
+      <param name="Threshold" value="DEBUGs"/>
       <rollingPolicy class="org.apache.log4j.rolling.TimeBasedRollingPolicy">
         <param name="FileNamePattern" value="@NUAGELOG@.%d{yyyy-MM-dd}.gz"/>
         <param name="ActiveFileName" value="@NUAGELOG@"/>
@@ -122,7 +122,7 @@ under the License.
 
    <appender name="CONSOLE" class="org.apache.log4j.ConsoleAppender">
       <param name="Target" value="System.out"/>
-      <param name="Threshold" value="INFO"/>
+      <param name="Threshold" value="TRACE"/>
       <layout class="org.apache.log4j.EnhancedPatternLayout">
          <param name="ConversionPattern" value="%-5p [%c{1.}] (%t:%x) %m%n"/>
       </layout>
@@ -133,15 +133,15 @@ under the License.
    <!-- ================ -->
 
    <category name="com.cloud">
-     <priority value="DEBUG"/>
+     <priority value="TRACE"/>
    </category>
    
    <category name="org.apache.cloudstack">
-     <priority value="DEBUG"/>
+     <priority value="TRACE"/>
    </category>
    
    <category name="org.apache.cloudstack">
-      <priority value="DEBUG"/>
+      <priority value="TRACE"/>
    </category>
 
    <category name="com.cloud.utils.nio">
@@ -154,7 +154,7 @@ under the License.
    </category>
 
    <category name="org.apache.cloudstack">
-      <priority value="DEBUG"/>
+      <priority value="TRACE"/>
    </category>
 
    <category name="org.apache.cloudstack.api.command">
@@ -178,7 +178,7 @@ under the License.
    </category>
 
    <category name="apiserver.com.cloud">
-     <priority value="DEBUG"/>
+     <priority value="TRACE"/>
    </category>
 
    <logger name="apiserver.com.cloud" additivity="false">
@@ -188,7 +188,7 @@ under the License.
 
    
    <logger name="com.cloud.bridge" additivity="false">
-      <level value="DEBUG"/>
+      <level value="TRACE"/>
       <appender-ref ref="AWSAPI"/>
    </logger>
    
@@ -198,27 +198,27 @@ under the License.
    </logger>
 
    <logger name="com.cloud.network.nuage" additivity="false">
-      <level value="WARN"/>
+      <level value="DEBUG"/>
       <appender-ref ref="NUAGEVSP"/>
    </logger>
    
    <logger name="net.nuage.vsp" additivity="false">
-      <level value="WARN"/>
+      <level value="DEBUG"/>
       <appender-ref ref="NUAGEVSP"/>
    </logger>
 
    <logger name="com.cloud.network.element.NuageVspElement" additivity="false">
-      <level value="WARN"/>
+      <level value="DEBUG"/>
       <appender-ref ref="NUAGEVSP"/>
    </logger>
    
    <logger name="com.cloud.network.element.NuageVspVpcElement" additivity="false">
-      <level value="WARN"/>
+      <level value="DEBUG"/>
       <appender-ref ref="NUAGEVSP"/>
    </logger>
 
   <logger name="com.cloud.network.guru.NuageVspGuestNetworkGuru" additivity="false">
-      <level value="WARN"/>
+      <level value="DEBUG"/>
       <appender-ref ref="NUAGEVSP"/>
   </logger>  
 
@@ -245,7 +245,7 @@ under the License.
    <!-- ======================= -->
 
    <root>
-      <level value="INFO"/>
+      <level value="TRACE"/>
       <appender-ref ref="SYSLOG"/>
       <appender-ref ref="CONSOLE"/>
       <appender-ref ref="FILE"/>

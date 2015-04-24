@@ -4536,13 +4536,13 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
             }
 
             if (_securityGroupEnabled) {
-                _canBridgeFirewall = can_bridge_firewall(conn);
+                /*_canBridgeFirewall = can_bridge_firewall(conn);
                 if (!_canBridgeFirewall) {
                     String msg = "Failed to configure brige firewall";
                     s_logger.warn(msg);
                     s_logger.warn("Check host " + _host.ip +" for CSP is installed or not and check network mode for bridge");
                     return new SetupAnswer(cmd, msg);
-                }
+                }*/
 
             }
 

@@ -2569,6 +2569,9 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
             //Add NuageVspVpc provider as the default network service provider is the isolation type is VSP
             addNuageVspVpcToPhysicalNetwork(pNetwork.getId(), isolationMethods);
 
+            //Add NuageVsp provider as the default network service provider is the isolation type is VSP
+            addNuageVspToPhysicalNetwork(pNetwork.getId(), isolationMethods);
+
             return pNetwork;
                 }
             });
@@ -3903,6 +3906,29 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
             try {
                 // Create the new physical network in the database
                 PhysicalNetworkServiceProviderVO nsp = new PhysicalNetworkServiceProviderVO(physicalNetworkId, Network.Provider.NuageVspVpc.getName());
+                // set enabled services
+                nsp.setEnabledServices(enabledServices);
+                nsp.setState(com.cloud.network.PhysicalNetworkServiceProvider.State.Enabled);
+
+                nsp = _pNSPDao.persist(nsp);
+
+            } catch (Exception ex) {
+                s_logger.warn("Exception: ", ex);
+                throw new CloudRuntimeException("Fail to add a provider to physical network");
+            }
+        }
+    }
+
+    private void addNuageVspToPhysicalNetwork(long physicalNetworkId, List<String> isolationMethods) {
+        if (isolationMethods.contains(IsolationMethod.VSP.name())) {
+            List<Service> enabledServices = new ArrayList<Service>();
+            enabledServices.add(Service.Dhcp);
+            enabledServices.add(Service.SecurityGroup);
+            enabledServices.add(Service.Connectivity);
+
+            try {
+                // Create the new physical network in the database
+                PhysicalNetworkServiceProviderVO nsp = new PhysicalNetworkServiceProviderVO(physicalNetworkId, Network.Provider.NuageVsp.getName());
                 // set enabled services
                 nsp.setEnabledServices(enabledServices);
                 nsp.setState(com.cloud.network.PhysicalNetworkServiceProvider.State.Enabled);
