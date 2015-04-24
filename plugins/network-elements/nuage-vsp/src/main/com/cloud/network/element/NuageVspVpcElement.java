@@ -197,7 +197,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                     //get the L3 DomainTemplate with externalUuid
                     String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
                             vpc.getUuid(), NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
-                    String vpcDomainTemplateId = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateId.key());
+                    String vpcDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
+                    String vpcDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
+                            "name", vpcDomainTemplateName, nuageVspAPIParamsAsCmsUser);
+                    String vpcDomainTemplateId = NuageVspApiUtil.getEntityId(vpcDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
                     if (domainTemplateId.equals(vpcDomainTemplateId)) {
                         vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, vpc.getUuid(),
                                 nuageVspAPIParamsAsCmsUser);
@@ -205,14 +208,14 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                             if (s_logger.isDebugEnabled()) {
                                 s_logger.debug("VPC getting deleted and its state is  " + vpc.getState() + ". So delete VPC " + vpc.getUuid() + " from VSP");
                             }
-                            NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                            result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
                         }
                     } else {
                         vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, vpc.getUuid(),
                                 nuageVspAPIParamsAsCmsUser);
                         if (StringUtils.isNotBlank(vspNetworkId)) {
                             s_logger.debug("VPC getting deleted and its state is  " + vpc.getState() + ". So delete VPC " + vpc.getUuid() + " from VSP");
-                            NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                            result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
                         }
                     }
                 }
@@ -220,6 +223,7 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
         } catch (Exception e) {
             s_logger.warn("Failed to clean up network information in Vsp " + e.getMessage());
+            result = false;
         }
 
         return result;
