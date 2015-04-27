@@ -210,7 +210,13 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             s_logger.debug("Handling reserve() call back to with Create a new VM " + vm.getInstanceName() + " or add an interface " + nic.getIp4Address()
                     + " to existing VM in network " + network.getName());
         }
-        addVmInterfaceOrCreateVMNuageVsp(network, vm, nic);
+
+        NetworkOfferingVO offering = _ntwkOfferingDao.findById(network.getNetworkOfferingId());
+
+        boolean forceIpAddress = vm.getType().equals(VirtualMachine.Type.InternalLoadBalancerVm)
+                || offering.getGuestType() == GuestType.Shared;
+        // TODO : add if user-selected fixed ip
+        addVmInterfaceOrCreateVMNuageVsp(network, vm, nic, forceIpAddress);
     }
 
     @DB
@@ -282,7 +288,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     }
 
     @DB
-    private void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic) throws InsufficientVirtualNetworkCapacityException {
+    public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic, boolean forceIpAddress) throws InsufficientVirtualNetworkCapacityException {
         //NicProfile does not contain the NIC UUID. We need this information to set it in the VMInterface and VPort
         //that we create in VSP
         DataCenter dc = _dcDao.findById(network.getDataCenterId());
@@ -320,6 +326,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             if (vm.getType().equals(VirtualMachine.Type.DomainRouter)) {
                 domainRouter = true;
                 vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), network.getBroadcastUri().getPath().substring(1));
+            } else if (forceIpAddress) {
+                vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), nic.getIp4Address());
             }
 
             vmInterfaceList.add(vmInterfaces);
