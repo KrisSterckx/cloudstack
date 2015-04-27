@@ -13,6 +13,7 @@ import java.util.Set;
 import javax.ejb.Local;
 import javax.inject.Inject;
 
+import com.cloud.offerings.NetworkOfferingVO;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -229,25 +230,37 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             JSONArray jsonArray = new JSONArray();
             jsonArray.put(enterpriseAndGroupId[1]);
             //this is not owned by project probably this is users network, hopefully the account ID matches user Id
-            //Since this is a new network now create a L2domaitemplate and instantiate it and add the subnet
+            //Since this is a new network now create a L2 DomainTemplate and instantiate it and add the subnet
             //or create a L3 DomainTemplate and instantiate it
             if (isVpc || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.SourceNat)
-                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat) || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.Connectivity)) {
+                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat)
+                    || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.Connectivity)) {
                 //get the details of DNS server setting to be set on the network
                 List<String> dnsServers = _nuageVspManager.getDnsDetails(network);
                 List<String> gatewaySystemIds = _nuageVspManager.getGatewaySystemIds();
 
                 if (isVpc) {
+                    if (s_logger.isDebugEnabled()) {
+                        s_logger.debug("Handling implement() callback for network " + network.getName() + " in VPC use case");
+                    }
                     Vpc vpcObj = _vpcDao.findById(vpcId);
                     String vpcDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
                     NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
                             ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(),
                             vpcObj.getUuid(), isIpAccessControlFeatureEnabled, vpcDomainTemplateName);
-                } else {
-                    //Create an L3 DomainTemplate
+                } else if (offering.getGuestType() == GuestType.Shared) {
                     if (s_logger.isDebugEnabled()) {
-                        s_logger.debug("Handling implement() call back for network " + network.getName() + ". Check with VSP to see if a Isolated L3 networks exist or not");
+                        s_logger.debug("Handling implement() callback for network " + network.getName() + " in Shared Network use case");
+                    }
+                    String sharedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspSharedNetworkDomainTemplateName.key());
+                    NuageVspApiUtil.createSharedNetworkWithDefaultACLs(networksDomain.getUuid(), enterpriseAndGroupId[0], network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
+                            NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
+                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser,
+                            sharedNetworkDomainTemplateName);
+                } else {
+                    if (s_logger.isDebugEnabled()) {
+                        s_logger.debug("Handling implement() callback for network " + network.getName() + " in Isolated Network use case");
                     }
                     String isolatedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateName.key());
                     NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
@@ -256,19 +269,15 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                             isolatedNetworkDomainTemplateName);
                 }
             } else {
-                //Create a L2 DomainTemplate
                 if (s_logger.isDebugEnabled()) {
-                    s_logger.debug("Handling implement() call back for network " + network.getName() + ". Check with VSP to see if a  Isolated L2 networks exist or not");
+                    s_logger.debug("Handling implement() callback for network " + network.getName() + " in Isolated L2 Network use case");
                 }
-
                 NuageVspApiUtil.createIsolatedL2NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
                         NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray,
                         nuageVspAPIParamsAsCmsUser);
             }
         } finally {
-            if (network != null) {
-                _networkDao.releaseFromLockTable(network.getId());
-            }
+            _networkDao.releaseFromLockTable(network.getId());
         }
     }
 
@@ -286,12 +295,12 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
             long networkOwnedBy = network.getAccountId();
             //get the Account details and find the type
-            AccountVO neworkAccountDetails = _accountDao.findById(networkOwnedBy);
-            if (neworkAccountDetails.getType() == Account.ACCOUNT_TYPE_PROJECT) {
+            AccountVO networkAccountDetails = _accountDao.findById(networkOwnedBy);
+            if (networkAccountDetails.getType() == Account.ACCOUNT_TYPE_PROJECT) {
                 throw new InsufficientVirtualNetworkCapacityException("CS project support is not yet implemented in NuageVsp", DataCenter.class, dc.getId());
             } else {
                 //this is not owned by project probably this is users network, hopefully the account ID matches user Id
-                //Since this is a new network now create a L2domaitemplate and instantiate it and add the subnet
+                //Since this is a new network now create a L2 Domain Template and instantiate it and add the subnet
                 //or create a L3 DomainTemplate and instantiate it
                 //Get the Nuage VSP configuration details
                 attachedNetworkDetails = getAttachedNetworkDetails(network, networksDomain, nuageVspAPIParamsAsCmsUser);
@@ -641,31 +650,48 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         return vportAndDomainId;
     }
 
+    private static class NetworkDetails {
+        public NuageVspEntity entityType;
+        public String entityId;
+        public Boolean isVpc;
+        public String domainUuid;
+
+        public Object[] getData() {
+            return new Object[] {
+                entityType, entityId, isVpc, domainUuid
+            };
+        }
+    }
+
     private Object[] getAttachedNetworkDetails(Network network, DomainVO networksDomain, NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws NuageVspAPIUtilException {
-        Object[] attachedNetworkDetails = new Object[4];
-        long networkOfferingId = _ntwkOfferingDao.findById(network.getNetworkOfferingId()).getId();
+        NetworkDetails attachedNetworkDetails = new NetworkDetails();
+        NetworkOfferingVO networkOffering = _ntwkOfferingDao.findById(network.getNetworkOfferingId());
+        long networkOfferingId = networkOffering.getId();
         String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
         if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
                 || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
                 || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.Connectivity)) {
             Long vpcId = network.getVpcId();
             boolean isVpc = (vpcId != null);
+            attachedNetworkDetails.entityType = NuageVspEntity.SUBNET;
+            attachedNetworkDetails.isVpc = isVpc;
             if (isVpc) {
                 Vpc vpcObj = _vpcDao.findById(vpcId);
-                attachedNetworkDetails[1] = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser, vpcObj.getUuid());
-                attachedNetworkDetails[2] = Boolean.TRUE;
-                attachedNetworkDetails[3] = vpcObj.getUuid();
+                attachedNetworkDetails.entityId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser, vpcObj.getUuid());
+                attachedNetworkDetails.domainUuid = vpcObj.getUuid();
+            } else if (networkOffering.getGuestType() == GuestType.Shared) {
+                attachedNetworkDetails.entityId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser, networksDomain.getUuid());
+                attachedNetworkDetails.domainUuid = networksDomain.getUuid();
             } else {
-                attachedNetworkDetails[1] = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser);
-                attachedNetworkDetails[2] = Boolean.FALSE;
-                attachedNetworkDetails[3] = network.getUuid();
+                attachedNetworkDetails.entityId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser);
+                attachedNetworkDetails.domainUuid = network.getUuid();
             }
-            attachedNetworkDetails[0] = NuageVspEntity.SUBNET;
+
         } else {
-            attachedNetworkDetails[1] = NuageVspApiUtil.getIsolatedDomain(enterpriseId, network.getUuid(), NuageVspEntity.L2DOMAIN, nuageVspAPIParamsAsCmsUser);
-            attachedNetworkDetails[0] = NuageVspEntity.L2DOMAIN;
+            attachedNetworkDetails.entityType = NuageVspEntity.L2DOMAIN;
+            attachedNetworkDetails.entityId = NuageVspApiUtil.getIsolatedDomain(enterpriseId, network.getUuid(), NuageVspEntity.L2DOMAIN, nuageVspAPIParamsAsCmsUser);
         }
-        return attachedNetworkDetails;
+        return attachedNetworkDetails.getData();
     }
 
 }
