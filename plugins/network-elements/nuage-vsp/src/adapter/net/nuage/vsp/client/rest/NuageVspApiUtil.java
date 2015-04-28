@@ -1733,6 +1733,15 @@ public class NuageVspApiUtil {
         return fieldValue;
     }
 
+    public static int getChildrenCount(NuageVspEntity entityType, String entityId, NuageVspEntity childEntityType, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        String jsonString = findEntityUsingFilter(entityType, entityId, childEntityType, null, nuageVspAPIParams);
+        if (StringUtils.isNotBlank(jsonString)) {
+            List<Map<String, Object>> entityDetails = parseJson(jsonString, childEntityType);
+            return entityDetails.size();
+        }
+        return 0;
+    }
+
     public static boolean cleanUpVspStaleObjects(NuageVspEntity entityToBeCleaned, String entityIDToBeCleaned, NuageVspAPIParams nuageVspAPIParams, List<Integer> retryNuageErrorCodes) {
         try {
             NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), entityToBeCleaned,

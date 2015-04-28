@@ -534,33 +534,27 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                                     result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.SUBNET, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
                                 }
                             }
-                        } else {
-                            //get the L3 DomainTemplate with externalUuid
-                            String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
-                                    network.getUuid(), NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
-                            String isolatedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateName.key());
-                            String isolatedNetworkDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
-                                    "name", isolatedNetworkDomainTemplateName, nuageVspAPIParamsAsCmsUser);
-                            String isolatedNetworkDomainTemplateId = NuageVspApiUtil.getEntityId(isolatedNetworkDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
-                            if (domainTemplateId.equals(isolatedNetworkDomainTemplateId)) {
-                                vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, network.getUuid(),
-                                        nuageVspAPIParamsAsCmsUser);
-                                if (StringUtils.isNotBlank(vspNetworkId)) {
+                        } else if (offering.getGuestType() == GuestType.Shared) {
+                            String vspDomainId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, domain.getUuid(),
+                                    nuageVspAPIParamsAsCmsUser);
+                            if (StringUtils.isNotBlank(vspDomainId)) {
+                                int subnetCount = NuageVspApiUtil.getChildrenCount(NuageVspEntity.DOMAIN, vspDomainId, NuageVspEntity.SUBNET, nuageVspAPIParamsAsCmsUser);
+                                if (subnetCount > 1) {
+                                    vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, vspDomainId, NuageVspEntity.SUBNET, network.getUuid(),
+                                            nuageVspAPIParamsAsCmsUser);
                                     if (s_logger.isDebugEnabled()) {
                                         s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + network.getName() + " in CS. So, delete it");
                                     }
-                                    result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
-                                }
-                            } else {
-                                vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, network.getUuid(),
-                                        nuageVspAPIParamsAsCmsUser);
-                                if (StringUtils.isNotBlank(vspNetworkId)) {
-                                    if (s_logger.isDebugEnabled()) {
-                                        s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + network.getName() + " in CS. So, delete it");
-                                    }
-                                    result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                                    result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.SUBNET, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                                } else {
+                                    String sharedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspSharedNetworkDomainTemplateName.key());
+                                    result = cleanUpDomainAndTemplate(enterpriseId, domain.getUuid(), network.getName(), sharedNetworkDomainTemplateName, nuageVspAPIParamsAsCmsUser);
                                 }
                             }
+
+                        } else {
+                            String isolatedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateName.key());
+                            result = cleanUpDomainAndTemplate(enterpriseId, network.getUuid(), network.getName(), isolatedNetworkDomainTemplateName, nuageVspAPIParamsAsCmsUser);
                         }
                     } else {
                         //Create a L2 DomainTemplate
@@ -585,6 +579,37 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         }
 
         return result && super.trash(network, offering);
+    }
+
+    private boolean cleanUpDomainAndTemplate(String enterpriseId, String networkUuid, String networkName, String preConfiguredDomainTemplateName,
+                                             NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws NuageVspAPIUtilException {
+        //get the L3 DomainTemplate with externalUuid
+        String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
+                networkUuid, NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
+        String preConfiguredDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
+                "name", preConfiguredDomainTemplateName, nuageVspAPIParamsAsCmsUser);
+        String preConfiguredDomainTemplateId = NuageVspApiUtil.getEntityId(preConfiguredDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
+        String vspNetworkId;
+        if (domainTemplateId.equals(preConfiguredDomainTemplateId)) {
+            vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, networkUuid,
+                    nuageVspAPIParamsAsCmsUser);
+            if (StringUtils.isNotBlank(vspNetworkId)) {
+                if (s_logger.isDebugEnabled()) {
+                    s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + networkName + " in CS. So, delete it");
+                }
+                return NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+            }
+        } else {
+            vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, networkUuid,
+                    nuageVspAPIParamsAsCmsUser);
+            if (StringUtils.isNotBlank(vspNetworkId)) {
+                if (s_logger.isDebugEnabled()) {
+                    s_logger.debug("Found a VSP L3 network " + vspNetworkId + " that corresponds to network " + networkName + " in CS. So, delete it");
+                }
+                return NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+            }
+        }
+        return true;
     }
 
     private HostVO getNuageVspHost(Long physicalNetworkId) throws NuageVspAPIUtilException {
