@@ -149,13 +149,19 @@ public class NuageVspApiUtil {
         return vmJsonString;
     }
 
-    public static String[] getOrCreateVSPEnterpriseAndGroup(String networksDomainName, String networksDomainPath, String networksDomainUuid, String networksAccountName,
-            String networksAccountUuid, NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws NuageVspAPIUtilException {
-        String enterpriseId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, networksDomainUuid, nuageVspAPIParamsAsCmsUser);
+    public static String getOrCreateVSPEnterprise(String domainUuid, String domainName, String domainPath,
+                                                  NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws NuageVspAPIUtilException {
+        String enterpriseId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, domainUuid, nuageVspAPIParamsAsCmsUser);
         if (StringUtils.isBlank(enterpriseId)) {
             //Create a Enterprise corresponding to networksDomain
-            enterpriseId = createEnterpriseInVSP(networksDomainUuid, getEnterpriseName(networksDomainName, networksDomainPath), nuageVspAPIParamsAsCmsUser);
+            enterpriseId = createEnterpriseInVSP(domainUuid, getEnterpriseName(domainName, domainPath), nuageVspAPIParamsAsCmsUser);
         }
+        return enterpriseId;
+    }
+
+    public static String[] getOrCreateVSPEnterpriseAndGroup(String networksDomainName, String networksDomainPath, String networksDomainUuid, String networksAccountName,
+            String networksAccountUuid, NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws NuageVspAPIUtilException {
+        String enterpriseId = getOrCreateVSPEnterprise(networksDomainUuid, networksDomainName, networksDomainPath, nuageVspAPIParamsAsCmsUser);
 
         //Check if user exists. If no then create an user under enterprise
         String userId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.USER, networksAccountUuid, nuageVspAPIParamsAsCmsUser);

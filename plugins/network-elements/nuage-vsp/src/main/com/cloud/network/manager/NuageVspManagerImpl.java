@@ -34,13 +34,20 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.domain.Domain;
+import com.cloud.domain.dao.DomainDao;
+import com.cloud.user.DomainManager;
+import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
+import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
+import org.apache.cloudstack.framework.messagebus.MessageBus;
+import org.apache.cloudstack.framework.messagebus.MessageSubscriber;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
@@ -153,8 +160,13 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     VpcServiceMapDao _vpcSrvcDao;
     @Inject
     AgentManager _agentMgr;
+    @Inject
+    private DomainDao _domainDao;
 
     private ScheduledExecutorService scheduler;
+
+    @Inject
+    MessageBus _messageBus;
 
     @Override
     public List<Class<?>> getCommands() {
@@ -432,9 +444,38 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
     @Override
     public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
+        initMessageBusListeners();
         initNuageVspVpcOffering();
         initNuageScheduledTasks();
         return true;
+    }
+
+    @DB
+    private void initMessageBusListeners() {
+        // Create corresponding enterprise in VSP when creating a CS Domain
+        _messageBus.subscribe(DomainManager.MESSAGE_ADD_DOMAIN_EVENT, new MessageSubscriber() {
+            @Override
+            public void onPublishMessage(String senderAddress, String subject, Object args) {
+                Long domainId = (Long) args;
+                Domain domain = _domainDao.findById(domainId);
+
+                try {
+                    _domainDao.acquireInLockTable(domain.getId());
+
+                    List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
+                    for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                        HostVO host = _hostDao.findById(nuageVspDevice.getHostId());
+                        _hostDao.loadDetails(host);
+                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+                        NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
+                    }
+                } catch (NuageVspAPIUtilException e) {
+                    s_logger.error(e.getMessage());
+                } finally {
+                    _domainDao.releaseFromLockTable(domain.getId());
+                }
+            }
+        });
     }
 
     @DB
