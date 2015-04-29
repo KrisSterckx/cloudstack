@@ -35,8 +35,12 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.domain.Domain;
+import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.host.Status;
 import com.cloud.user.DomainManager;
+import com.cloud.utils.fsm.StateListener;
+import com.cloud.utils.fsm.StateMachine2;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
@@ -50,6 +54,7 @@ import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.MessageSubscriber;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
 
 import com.cloud.agent.AgentManager;
@@ -112,7 +117,7 @@ import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
 
 @Local(value = {NuageVspManager.class})
-public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager, Configurable {
+public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager, Configurable, StateListener<Status, Status.Event, Host> {
 
     private static final Logger s_logger = Logger.getLogger(NuageVspManagerImpl.class);
 
@@ -443,10 +448,39 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     }
 
     @Override
+    public boolean preStateTransitionEvent(Status oldState, Status.Event event, Status newState, Host host, boolean status, Object opaque) {
+        return true;
+    }
+
+    @Override
+    public boolean postStateTransitionEvent(StateMachine2.Transition<Status, Status.Event> transition, Host vo, boolean status, Object opaque) {
+        // Whenever a Nuage VSP Host comes up, check if all CS domains are present
+        if (transition.getToState() == Status.Up && vo instanceof HostVO) {
+            HostVO host = (HostVO) vo;
+            List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
+            if (!CollectionUtils.isEmpty(nuageVspDevices)) {
+                _hostDao.loadDetails(host);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+
+                List<DomainVO> allDomains = _domainDao.listAll();
+                for (DomainVO domain : allDomains) {
+                    try {
+                        NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
+                    } catch (NuageVspAPIUtilException e) {
+                        s_logger.warn(e.getMessage());
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    @Override
     public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
         initMessageBusListeners();
         initNuageVspVpcOffering();
         initNuageScheduledTasks();
+        Status.getStateMachine().registerListener(this);
         return true;
     }
 
