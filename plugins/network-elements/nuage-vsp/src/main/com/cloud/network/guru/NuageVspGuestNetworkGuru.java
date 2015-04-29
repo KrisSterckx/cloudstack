@@ -516,10 +516,11 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
                 String enterpriseId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, domain.getUuid(), nuageVspAPIParamsAsCmsUser);
                 if (StringUtils.isNotBlank(enterpriseId)) {
-                    if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.SourceNat)
-                            || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat)) {
-                        Long vpcId = network.getVpcId();
-                        boolean isVpc = (vpcId != null);
+                    Long vpcId = network.getVpcId();
+                    boolean isVpc = (vpcId != null);
+                    if (isVpc || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.SourceNat)
+                            || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.StaticNat)
+                            || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(offering.getId(), Service.Connectivity)) {
                         if (isVpc) {
                             Vpc vpcObj = _vpcDao.findById(vpcId);
                             String vspDomainId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, vpcObj.getUuid(),
