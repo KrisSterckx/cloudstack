@@ -349,6 +349,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                         DetailVO detail = new DetailVO(host.getId(), "nuagevspdeviceid", String.valueOf(nuageVspDevice.getId()));
                         _hostDetailsDao.persist(detail);
 
+                        validateDomainsOnVsp((HostVO) host);
+
                         return nuageVspDevice;
                     }
                 });
@@ -457,22 +459,26 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         // Whenever a Nuage VSP Host comes up, check if all CS domains are present
         if (transition.getToState() == Status.Up && vo instanceof HostVO) {
             HostVO host = (HostVO) vo;
-            List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
-            if (!CollectionUtils.isEmpty(nuageVspDevices)) {
-                _hostDao.loadDetails(host);
-                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+            validateDomainsOnVsp(host);
+        }
+        return true;
+    }
 
-                List<DomainVO> allDomains = _domainDao.listAll();
-                for (DomainVO domain : allDomains) {
-                    try {
-                        NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
-                    } catch (NuageVspAPIUtilException e) {
-                        s_logger.warn(e.getMessage());
-                    }
+    private void validateDomainsOnVsp(HostVO host) {
+        List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
+        if (!CollectionUtils.isEmpty(nuageVspDevices)) {
+            _hostDao.loadDetails(host);
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+
+            List<DomainVO> allDomains = _domainDao.listAll();
+            for (DomainVO domain : allDomains) {
+                try {
+                    NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
+                } catch (NuageVspAPIUtilException e) {
+                    s_logger.warn(e.getMessage());
                 }
             }
         }
-        return true;
     }
 
     @Override
