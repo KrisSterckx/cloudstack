@@ -433,6 +433,12 @@ public class NuageVspApiUtil {
                 "name", preConfiguredDomainTemplateName, nuageVspAPIParams);
         String preConfiguredDomainTemplateId = NuageVspApiUtil.getEntityId(preConfiguredDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
 
+        if (StringUtils.isNotBlank(preConfiguredDomainTemplateName) && StringUtils.isBlank(preConfiguredDomainTemplateId)) {
+            errorMessage.append(debugMessage).append(" Preconfigured DomainTemplate '").append(preConfiguredDomainTemplateName).append("' could not be found");
+            s_logger.error(errorMessage);
+            throw new NuageVspAPIUtilException(errorMessage.toString());
+        }
+
         if (StringUtils.isNotBlank(preConfiguredDomainTemplateId)) {
             domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
             if (StringUtils.isNotBlank(domainId)) {
