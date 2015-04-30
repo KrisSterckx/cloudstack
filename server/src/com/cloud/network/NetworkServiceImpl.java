@@ -3925,6 +3925,10 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
             enabledServices.add(Service.Dhcp);
             enabledServices.add(Service.SecurityGroup);
             enabledServices.add(Service.Connectivity);
+            enabledServices.add(Service.Gateway);
+            enabledServices.add(Service.SourceNat);
+            enabledServices.add(Service.StaticNat);
+            enabledServices.add(Service.Firewall);
 
             try {
                 // Create the new physical network in the database
