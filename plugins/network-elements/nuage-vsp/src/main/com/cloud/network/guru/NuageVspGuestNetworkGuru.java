@@ -150,8 +150,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             implemented.setCidr(network.getCidr());
         }
 
-        Collection<String> ipAddressRange = new ArrayList<String>();
-        String virtualRouterIp = getVirtualRouterIP(network, ipAddressRange);
+        Collection<String[]> ipAddressRanges = new ArrayList<String[]>();
+        String virtualRouterIp = getVirtualRouterIP(network, ipAddressRanges);
 
         String networkUuid = implemented.getUuid();
         String tenantId = context.getDomain().getName() + "-" + context.getAccount().getAccountId();
@@ -175,7 +175,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 s_logger.debug(errorMessage);
                 throw new InsufficientVirtualNetworkCapacityException(errorMessage, Account.class, network.getAccountId());
             } else {
-                implementNetwork(network, offering, physicalNetworkId, ipAddressRange, vpcId, isVpc, networksDomain, networksAccount);
+                implementNetwork(network, offering, physicalNetworkId, ipAddressRanges, vpcId, isVpc, networksDomain, networksAccount);
             }
         } catch (NuageVspAPIUtilException e) {
             throw new InsufficientVirtualNetworkCapacityException(e.getMessage(), Network.class, network.getId());
@@ -220,7 +220,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     }
 
     @DB
-    private void implementNetwork(Network network, NetworkOffering offering, Long physicalNetworkId, Collection<String> ipAddressRange, Long vpcId, boolean isVpc,
+    private void implementNetwork(Network network, NetworkOffering offering, Long physicalNetworkId, Collection<String[]> ipAddressRanges, Long vpcId, boolean isVpc,
             Domain networksDomain, AccountVO networksAccount) throws NuageVspAPIUtilException {
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(physicalNetworkId));
         String[] enterpriseAndGroupId = NuageVspApiUtil.getOrCreateVSPEnterpriseAndGroup(networksDomain.getName(), networksDomain.getPath(), networksDomain.getUuid(),
@@ -253,16 +253,26 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     String vpcDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
                     NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
-                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(),
+                            ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(),
                             vpcObj.getUuid(), isIpAccessControlFeatureEnabled, vpcDomainTemplateName);
                 } else if (offering.getGuestType() == GuestType.Shared) {
                     if (s_logger.isDebugEnabled()) {
                         s_logger.debug("Handling implement() callback for network " + network.getName() + " in Shared Network use case");
                     }
+
+                    // Shared networks use their own ipAddressRanges, therefore overwrite
+                    ipAddressRanges = new ArrayList<String[]>();
+                    List<VlanVO> vlans = _vlanDao.listVlansByNetworkId(network.getId());
+                    for (VlanVO vlan : vlans) {
+                        boolean isIpv4 = StringUtils.isNotBlank(vlan.getIpRange());
+                        String[] range = isIpv4 ? vlan.getIpRange().split("-") : vlan.getIp6Range().split("-");
+                        ipAddressRanges.add(range);
+                    }
+
                     String sharedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspSharedNetworkDomainTemplateName.key());
                     NuageVspApiUtil.createSharedNetworkWithDefaultACLs(networksDomain.getUuid(), enterpriseAndGroupId[0], network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
-                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser,
+                            ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser,
                             sharedNetworkDomainTemplateName);
                 } else {
                     if (s_logger.isDebugEnabled()) {
@@ -271,7 +281,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     String isolatedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateName.key());
                     NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
-                            ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser,
+                            ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, isIpAccessControlFeatureEnabled, nuageVspAPIParamsAsCmsUser,
                             isolatedNetworkDomainTemplateName);
                 }
             } else {
@@ -279,7 +289,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     s_logger.debug("Handling implement() callback for network " + network.getName() + " in Isolated L2 Network use case");
                 }
                 NuageVspApiUtil.createIsolatedL2NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
-                        NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), ipAddressRange, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray,
+                        NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray,
                         nuageVspAPIParamsAsCmsUser);
             }
         } finally {
@@ -627,7 +637,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         return nuageVspHost;
     }
 
-    private String getVirtualRouterIP(Network network, Collection<String> addressRange) throws InsufficientVirtualNetworkCapacityException {
+    private String getVirtualRouterIP(Network network, Collection<String[]> ipAddressRanges) throws InsufficientVirtualNetworkCapacityException {
         String virtualRouterIp;
         //Check if the subnet has minimum 5 host in it.
         String subnet = NetUtils.getCidrSubNet(network.getCidr());
@@ -649,8 +659,10 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 virtualRouterIp = NetUtils.long2Ip(vip);
                 s_logger.debug("1nd IP is not used as the gateway IP. So, reserving" + virtualRouterIp + " for the Virtual Router IP for " + "Network(" + network.getName() + ")");
             }
-            addressRange.add(NetUtils.long2Ip(ipIterator.next()));
-            addressRange.add(NetUtils.getIpRangeEndIpFromCidr(subnet, cidrSize));
+            String[] ipAddressRange = new String[2];
+            ipAddressRange[0] = NetUtils.long2Ip(ipIterator.next());
+            ipAddressRange[1] = NetUtils.getIpRangeEndIpFromCidr(subnet, cidrSize);
+            ipAddressRanges.add(ipAddressRange);
             return virtualRouterIp;
         }
 
