@@ -114,9 +114,6 @@ public class IPAddressVO implements IpAddress {
     @Column(name = "is_portable")
     private boolean portable = false;
 
-    @Column(name="access_control")
-    private boolean accessControl = false;
-
     @Column(name = "display", updatable = true, nullable = false)
     protected boolean display = true;
 
@@ -176,14 +173,6 @@ public class IPAddressVO implements IpAddress {
     @Override
     public Ip getAddress() {
         return address;
-    }
-
-    public boolean isAccessControl() {
-        return accessControl;
-    }
-
-    public void setAccessControl(boolean accessControl) {
-        this.accessControl = accessControl;
     }
 
     @Override

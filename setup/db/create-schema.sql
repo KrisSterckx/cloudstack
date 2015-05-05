@@ -999,7 +999,6 @@ CREATE TABLE  `cloud`.`user_ip_address` (
   `physical_network_id` bigint unsigned NOT NULL COMMENT 'physical network id that this configuration is based on',
   `is_system` int(1) unsigned NOT NULL default '0',
   `vpc_id` bigint unsigned COMMENT 'vpc the ip address is associated with',
-  `access_control` int(1) unsigned NOT NULL default '0' COMMENT 'extra access control on special ports',
   PRIMARY KEY (`id`),
   UNIQUE (`public_ip_address`, `source_network_id`),
   CONSTRAINT `fk_user_ip_address__source_network_id` FOREIGN KEY (`source_network_id`) REFERENCES `networks`(`id`),

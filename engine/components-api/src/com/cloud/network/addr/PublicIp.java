@@ -234,16 +234,6 @@ public class PublicIp implements PublicIpAddress {
     }
 
     @Override
-    public void setAccessControl(boolean accessControl) {
-        _addr.setAccessControl(accessControl);
-    }
-
-    @Override
-    public boolean isAccessControl() {
-        return _addr.isAccessControl();
-    }
-
-    @Override
     public boolean isDisplay() {
         return _addr.isDisplay();
     }

@@ -140,7 +140,6 @@ known_categories = {
     'BrocadeVcsDevice': 'Brocade VCS',
     'BigSwitchVnsDevice': 'BigSwitch VNS',
 	'NuageVsp': 'Nuage VSP',
-    'updateIpAccessControl': 'Nuage VSP',
     'AutoScale': 'AutoScale',
     'Counter': 'AutoScale',
     'Condition': 'AutoScale',

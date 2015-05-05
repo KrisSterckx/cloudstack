@@ -577,9 +577,4 @@ public class VpcVirtualRouterElement extends VirtualRouterElement implements Vpc
         return _vpcRouterMgr.stopRemoteAccessVpn(vpn, routers.get(0));
     }
 
-    @Override
-    public boolean applyAccessControl(Vpc vpc, List<? extends IpAddress> ips) throws ResourceUnavailableException {
-        return true;
-    }
-
 }

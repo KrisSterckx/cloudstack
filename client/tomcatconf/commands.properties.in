@@ -643,7 +643,6 @@ deleteNuageVspDevice=1
 listNuageVspDevices=1
 updateNuageVspDevice=1
 issueNuageVspResourceRequest=15
-updateIpAccessControl=15
 
 #### host simulator commands
 
