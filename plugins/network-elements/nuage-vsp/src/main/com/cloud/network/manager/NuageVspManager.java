@@ -52,10 +52,6 @@ public interface NuageVspManager extends PluggableService {
             + "If nuagevsp.configure.dns is false, DNS server will not be configured in the VM. Default value for this flag is true",
             true, Scope.Global, null);
 
-    static final ConfigKey<Boolean> NuageVspIpAccessControl = new ConfigKey<Boolean>(Boolean.class, "nuagevsp.ipaccesscontrol", "Advanced", "false",
-            "Defines if NuageVsp plugin needs to enable IP access control feature. True will enable the feature and false will disable the feature", true,
-            Scope.Global, null);
-
     static final ConfigKey<String> NuageVspConfigGateway = new ConfigKey<String>(String.class, "nuagevsp.configure.gateway.systemid", "Advanced", "",
             "Defines the systemID of the gateway configured in VSP", true, Scope.Global, null);
 

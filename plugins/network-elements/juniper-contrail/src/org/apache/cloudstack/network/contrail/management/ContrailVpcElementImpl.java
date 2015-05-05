@@ -32,7 +32,6 @@ import com.cloud.deploy.DeployDestination;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.InsufficientCapacityException;
 import com.cloud.exception.ResourceUnavailableException;
-import com.cloud.network.IpAddress;
 import com.cloud.network.Network;
 import com.cloud.network.Network.Provider;
 import com.cloud.network.element.NetworkACLServiceProvider;
@@ -193,11 +192,6 @@ public class ContrailVpcElementImpl extends ContrailElementImpl implements Netwo
                     throws ResourceUnavailableException {
         // TODO Auto-generated method stub
         s_logger.debug("NetworkElement applyACLItemsToPrivateGw");
-        return true;
-    }
-
-    @Override
-    public boolean applyAccessControl(Vpc vpc, List<? extends IpAddress> ips) throws ResourceUnavailableException {
         return true;
     }
 

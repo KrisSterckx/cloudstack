@@ -505,7 +505,6 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         Long vpcId = config.getVpcId();
         Domain networksDomain = _domainDao.findById(config.getDomainId());
         DataCenter dc = _dcDao.findById(config.getDataCenterId());
-        Boolean isIpAccessControlFeatureEnabled = Boolean.valueOf(_configDao.getValue(NuageVspManager.NuageVspIpAccessControl.key()));
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser;
         try {
             nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(config.getPhysicalNetworkId()));
@@ -565,8 +564,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                                         + " is in Revoke state but it is not associated to any NIC in Cloudstack(nicVO=null). So, floating IP needs to be disassociated from VPort and deleted from VSP");
                             }
                             //this is the case where we know that vportId is null so set it to "" so that we do not query VPorts in VSP to find the VPort that has the FIP
-                            NuageVspApiUtil.releaseFIPFromVsp(config.getUuid(), sourceNatIp.getAddress().addr(), sourceNatIp.getUuid(), attachedL2DomainOrDomainId, "", vspNetworkId,
-                                    attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc, isIpAccessControlFeatureEnabled);
+                            NuageVspApiUtil.releaseFIPFromVsp(config.getUuid(), sourceNatIp.getUuid(), attachedL2DomainOrDomainId, "", vspNetworkId,
+                                    attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc);
                         } else {
                             s_logger.debug("Static NAT " + sourceNatIp.getAddress().addr() + "(" + sourceNatIp.getUuid() + ")" + " associated to network " + config.getName()
                                     + " is not in Revoke state but NIC is null.");
@@ -608,12 +607,12 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                                         + " is disassociated from the VM interface " + nicVO.getIp4Address() + ". So, disassociate the Floating IP from VM's VPort " + vportId
                                         + " and delete the Floating IP");
                             }
-                            NuageVspApiUtil.releaseFIPFromVsp(config.getUuid(), sourceNatIp.getAddress().addr(), sourceNatIp.getUuid(), domainId != null ? domainId : attachedL2DomainOrDomainId,
-                                    vportId, vspNetworkId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc, isIpAccessControlFeatureEnabled);
+                            NuageVspApiUtil.releaseFIPFromVsp(config.getUuid(), sourceNatIp.getUuid(), domainId != null ? domainId : attachedL2DomainOrDomainId,
+                                    vportId, vspNetworkId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, isVpc);
                         } else {
                             NuageVspApiUtil.applyStaticNatInVSP(config.getName(), config.getUuid(), nuageVspAPIParamsAsCmsUser, attachedL2DomainOrDomainId, attachedNetworkType, vspNetworkId,
                                     vpcOrSubnetUuid, isVpc, sourceNatIp.getAddress().addr(), sourceNatIp.getUuid(), sourceNatVan.getVlanGateway(), sourceNatVan.getVlanNetmask(),
-                                    sourceNatIp.isAccessControl(), isIpAccessControlFeatureEnabled, sourceNatVan.getUuid(), nicVO.getIp4Address(), nicVO.getUuid(), vportId, domainId);
+                                    sourceNatVan.getUuid(), nicVO.getIp4Address(), nicVO.getUuid(), vportId, domainId);
                         }
                     }
                 } catch (Exception e) {

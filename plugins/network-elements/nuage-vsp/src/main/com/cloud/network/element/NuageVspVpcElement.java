@@ -46,14 +46,12 @@ import com.cloud.domain.Domain;
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.InsufficientCapacityException;
 import com.cloud.exception.ResourceUnavailableException;
-import com.cloud.network.IpAddress;
 import com.cloud.network.Network;
 import com.cloud.network.Network.Service;
 import com.cloud.network.Network.State;
 import com.cloud.network.NetworkModel;
 import com.cloud.network.Networks.TrafficType;
 import com.cloud.network.PhysicalNetwork.IsolationMethod;
-import com.cloud.network.dao.IPAddressVO;
 import com.cloud.network.dao.PhysicalNetworkDao;
 import com.cloud.network.dao.PhysicalNetworkVO;
 import com.cloud.network.manager.NuageVspManager;
@@ -569,66 +567,5 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
             routers.addAll(allRunningRoutersOutsideThePod);
         }
         return routers;
-    }
-
-    @Override
-    public boolean applyAccessControl(Vpc vpc, List<? extends IpAddress> ips) throws ResourceUnavailableException {
-        boolean appliedAccessControl = true;
-        long initialStartTime = System.currentTimeMillis();
-        Boolean isIpAccessControlFeatureEnabled = Boolean.valueOf(_configDao.getValue(NuageVspManager.NuageVspIpAccessControl.key()));
-        if (!isIpAccessControlFeatureEnabled) {
-            //IP Access Control feature is not enabled. So, throw an error to enable if VSP supports it
-            String errorMessage = "IP Access Control feature is not enabled. Use " + NuageVspManager.NuageVspIpAccessControl.key() + " global setting either to enable od disable the feature";
-            s_logger.error(errorMessage);
-            throw new ResourceUnavailableException(errorMessage, Vpc.class, vpc.getId());
-        }
-        for (IpAddress fip : ips)
-        {
-            String ipAddress = fip.getAddress().addr();
-            long ipId = fip.getId();
-            IPAddressVO ipVO = _ipAddressDao.acquireInLockTable(ipId, 1200);
-            if (ipVO == null) {
-                s_logger.error(" Failed to acquire the lock for " + "IP Address " + ipAddress + " even after " + (System.currentTimeMillis() - initialStartTime));
-                throw new ConcurrentOperationException("Unable to acquire lock on IPAddress " + ipId);
-            }
-            try {
-                //update the accessControl status of the IP in DB
-                boolean accessControl = fip.isAccessControl();
-                //Handle FIP ACL addition/deletion
-                if (fip.isOneToOneNat()) {
-                    if (fip.getAssociatedWithVmId() != null && !StringUtils.isBlank(fip.getVmIp())) {
-                        s_logger.debug("IP " + fip.getAddress() + " is associated with VM with ID = " + fip.getAssociatedWithVmId() + " and IP = " + fip.getVmIp());
-                        //Get the Enterprise and Domain details associated to the VPC.
-                        //Then add/delete the ACL to the Domain
-                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = null;
-                        Long physicalNetworkId = getPhysicalNetworkId(vpc.getZoneId());
-                        nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(physicalNetworkId));
-                        Domain vpcDomain = _domainDao.findById(vpc.getDomainId());
-                        String enterpriseId = NuageVspApiUtil.getEnterprise(vpcDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
-                        String vpcUuid = vpc.getUuid();
-                        //We support only L3 Domain, so get the domain Id from VSP
-                        String attachedDomainId = NuageVspApiUtil.getIsolatedDomain(enterpriseId, vpcUuid, NuageVspEntity.DOMAIN, nuageVspAPIParamsAsCmsUser);
-                        s_logger.debug("VSP Domain to" + (accessControl ? " add " : " delete ") + " FIP ACL is " + attachedDomainId);
-                        //Now create/delete the FIPACLs
-                        NuageVspApiUtil.applyFIPAccessControl(vpcUuid, attachedDomainId, NuageVspEntity.DOMAIN, accessControl, fip.getAddress().addr(), fip.getUuid(),
-                                nuageVspAPIParamsAsCmsUser);
-                    } else {
-                        s_logger.debug("IP " + fip.getAddress() + " is not properly associated with any VM because AssociatedWithVmId = " + fip.getAssociatedWithVmId()
-                                + " VMIp = " + fip.getVmIp() + ". So, FIP ACLs are not created..");
-                    }
-                } else {
-                    s_logger.debug("IP " + fip.getAddress() + " is not a One to One NAT. So, only DB is updated with the state..");
-                }
-            } catch (Exception e1) {
-                s_logger.error("Failed to create Egress FIP ACL. So, accessControl for IP " + fip.getAddress());
-                appliedAccessControl = false;
-                break;
-            } finally {
-                if (ipVO != null) {
-                    _ipAddressDao.releaseFromLockTable(ipVO.getId());
-                }
-            }
-        }
-        return appliedAccessControl;
     }
 }

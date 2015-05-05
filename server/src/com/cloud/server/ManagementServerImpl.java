@@ -365,7 +365,6 @@ import org.apache.cloudstack.api.command.user.network.ListNetworkOfferingsCmd;
 import org.apache.cloudstack.api.command.user.network.ListNetworksCmd;
 import org.apache.cloudstack.api.command.user.network.ReplaceNetworkACLListCmd;
 import org.apache.cloudstack.api.command.user.network.RestartNetworkCmd;
-import org.apache.cloudstack.api.command.user.network.UpdateIpAccessControlCmd;
 import org.apache.cloudstack.api.command.user.network.UpdateNetworkACLItemCmd;
 import org.apache.cloudstack.api.command.user.network.UpdateNetworkACLListCmd;
 import org.apache.cloudstack.api.command.user.network.UpdateNetworkCmd;
@@ -2951,7 +2950,6 @@ public class ManagementServerImpl extends ManagerBase implements ManagementServe
         cmdList.add(AssignCertToLoadBalancerCmd.class);
         cmdList.add(RemoveCertFromLoadBalancerCmd.class);
         cmdList.add(GenerateAlertCmd.class);
-        cmdList.add(UpdateIpAccessControlCmd.class);
         cmdList.add(ListOvsElementsCmd.class);
         cmdList.add(ConfigureOvsElementCmd.class);
         cmdList.add(GetVMUserDataCmd.class);

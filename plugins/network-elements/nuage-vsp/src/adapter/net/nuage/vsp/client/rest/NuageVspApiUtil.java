@@ -387,22 +387,22 @@ public class NuageVspApiUtil {
 
     public static void createSharedNetworkWithDefaultACLs(String domainUuid, String enterpriseId, String networkName, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
+            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         s_logger.debug("Create or find a subnet associated to shared network " + networkName + " in VSP");
         createNetworkConfigurationWithDefaultACLS(true, false, domainUuid, networkName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
-                gatewaySystemIds, ipAddressRanges, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
+                gatewaySystemIds, ipAddressRanges, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, preConfiguredDomainTemplateName);
     }
 
     public static void createIsolatedL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
+            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         createVPCOrL3NetworkWithDefaultACLs(enterpriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRanges,
-                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
+                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, preConfiguredDomainTemplateName);
     }
 
     public static void createVPCOrL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
-            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
+            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
 
         s_logger.debug("Create or find a VPC/Isolated network associated to network " + networkName + " in VSP");
         boolean isVpc = StringUtils.isNotBlank(vpcName);
@@ -417,12 +417,12 @@ public class NuageVspApiUtil {
         }
 
         createNetworkConfigurationWithDefaultACLS(isVpc, isVpc, vpcOrSubnetUuid, vpcOrSubnetName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
-                gatewaySystemIds, ipAddressRanges, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
+                gatewaySystemIds, ipAddressRanges, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, preConfiguredDomainTemplateName);
     }
 
     private static void createNetworkConfigurationWithDefaultACLS(boolean reuseDomain, boolean isVpc, String uuid, String name, String enterpriseId, String networkName, String netmask,
               String address, String gateway, Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String[]> ipAddressRanges,
-              boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, Boolean isIpAccessControlFeatureEnabled,
+              boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId, NuageVspAPIParams nuageVspAPIParams,
               String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         String domainTemplateId = null;
         String domainId = null;
@@ -445,7 +445,7 @@ public class NuageVspApiUtil {
                 validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid, netmask, address, gateway, dnsServers,
                         ipAddressRanges, nuageVspAPIParams);
             } else {
-                createDomainZoneAndSubnet(reuseDomain, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                createDomainZoneAndSubnet(reuseDomain, preConfiguredDomainTemplateId, networkName, uuid, name, gatewaySystemIds,
                         defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
             }
         } else {
@@ -479,7 +479,7 @@ public class NuageVspApiUtil {
                     throw new NuageVspAPIUtilException(error);
                 }
 
-                createDomainZoneAndSubnet(reuseDomain, isIpAccessControlFeatureEnabled, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                createDomainZoneAndSubnet(reuseDomain, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
                         defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
             }
         }
@@ -515,7 +515,7 @@ public class NuageVspApiUtil {
         }
     }
 
-    private static void createDomainZoneAndSubnet(boolean reuseDomain, boolean isIpAccessControlFeatureEnabled, String domainTemplateId, String networkName, String vpcOrSubnetUuid,
+    private static void createDomainZoneAndSubnet(boolean reuseDomain, String domainTemplateId, String networkName, String vpcOrSubnetUuid,
                                                   String vpcOrSubnetName, Collection<String> gatewaySystemIds, boolean defaultCSEgressPolicy, JSONArray groupId,
                                                   String netmask, String address, String gateway, List<String> dnsServers, Collection<String[]> ipAddressRanges, String networkUuid,
                                                   String enterpriseId, StringBuffer errorMessage, String debugMessage, NuageVspAPIParams nuageVspAPIParams) {
@@ -547,17 +547,6 @@ public class NuageVspApiUtil {
         //Create default ingress and egress ACLs
         errorMessage = createDefaultIngressAndEgressAcls(reuseDomain, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
                 new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
-        //Create the Default FIP ACL
-        if (isIpAccessControlFeatureEnabled && reuseDomain) {
-            try {
-                if (errorMessage.length() == 0) {
-                    createDefaultFIPACLTemplate(vpcOrSubnetUuid, domainId, NuageVspEntity.DOMAIN, nuageVspAPIParams);
-                }
-            } catch (Exception exception) {
-                errorMessage.append("Failed to create default Egress ACL for network ").append(vpcOrSubnetUuid).append(".  Json response from VSP REST API is  ")
-                        .append(exception.getMessage());
-            }
-        }
 
         String zoneId = null;
         try {
@@ -1035,70 +1024,9 @@ public class NuageVspApiUtil {
         return sharedResourceId;
     }
 
-    public static String applyFIPAccessControl(String vpcUuid, String attachedDomainId, NuageVspEntity attachedDomainType, boolean accessControl, String fipIPAddress, String fipUuid,
-            NuageVspAPIParams nuageVspAPIParams) throws Exception {
+    public static String allocateFIPToVPortInVsp(String sourceNatIp, String sourceNatIpUuid, String networkUuid, String sharedResourceId, String domainId,
+            String vportId, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, String vpcOrSubnetUuid, boolean isVpc) throws NuageVspAPIUtilException {
         String egressFipAclEntryId = null;
-        List<Map<String, Object>> fipAclTemplate = getACLAssociatedToDomain(vpcUuid, attachedDomainId, attachedDomainType, NuageVspEntity.EGRESS_FIP_ACLTEMPLATES,
-                nuageVspAPIParams, false);
-        String egressFIPACLTempId = null;
-        if (fipAclTemplate == null || fipAclTemplate.size() == 0) {
-            egressFIPACLTempId = createDefaultFIPACLTemplate(vpcUuid, attachedDomainId, attachedDomainType, nuageVspAPIParams);
-        } else {
-            egressFIPACLTempId = (String)fipAclTemplate.iterator().next().get(NuageVspAttribute.ID.getAttributeName());
-        }
-        //Now find if the FIP ACL for the given FIP IP is already present or not
-        String egressFipACLEntryJson = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.EGRESS_FIP_ACLTEMPLATES, egressFIPACLTempId,
-                NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES, NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_ADDR_OVERRIDE.getAttributeName(), fipIPAddress + "/32", nuageVspAPIParams);
-        if (accessControl) {
-            if (StringUtils.isBlank(egressFipACLEntryJson)) {
-                //Create Egress FIP ACL
-                egressFipAclEntryId = createAclEntriesWithRetry(false, NuageVspEntity.EGRESS_FIP_ACLTEMPLATES, NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES, null, null, fipIPAddress, fipUuid,
-                        0l, null, null, egressFIPACLTempId, nuageVspAPIParams);
-            }
-        } else {
-            if (!StringUtils.isBlank(egressFipACLEntryJson)) {
-                //Delete Egress FIP ACL
-                List<Map<String, Object>> egressFipAclEntry = NuageVspApi.parseJsonString(NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES, egressFipACLEntryJson);
-                egressFipAclEntryId = (String)egressFipAclEntry.iterator().next().get(NuageVspAttribute.ID.getAttributeName());
-                NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES,
-                        egressFipAclEntryId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
-                s_logger.debug("Deleted " + NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES + " with VSP ID " + egressFipAclEntryId + " in VSP.");
-            }
-        }
-        return egressFipAclEntryId;
-    }
-
-    private static String createDefaultFIPACLTemplate(String vpcUuid, String attachedDomainId, NuageVspEntity attachedDomainType, NuageVspAPIParams nuageVspAPIParams)
-            throws Exception, NuageVspAPIUtilException {
-        String egressFIPACLTempId;
-        s_logger.debug("Default FIP ACL template is not present in the domain " + attachedDomainId + ". So, this needs to be created");
-        Map<String, Object> egressFIPACLEntity = new HashMap<String, Object>();
-        egressFIPACLEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_NAME.getAttributeName(), "Egress FIP ACL");
-        egressFIPACLEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcUuid);
-        egressFIPACLEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ALLOW_IP.getAttributeName(), false);
-        egressFIPACLEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ALLOW_NON_IP.getAttributeName(), false);
-        egressFIPACLEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ACTIVE.getAttributeName(), true);
-
-        String fipEgressACL = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                attachedDomainType, attachedDomainId, NuageVspEntity.EGRESS_FIP_ACLTEMPLATES, egressFIPACLEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
-        egressFIPACLTempId = NuageVspApiUtil.getEntityId(fipEgressACL, NuageVspEntity.EGRESS_ACLTEMPLATES);
-        return egressFIPACLTempId;
-    }
-
-    public static String allocateFIPToVPortInVsp(String sourceNatIp, String sourceNatIpUuid, boolean sourceNatIpAccessControl, String networkUuid, String sharedResourceId, String domainId,
-            String vportId, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, String vpcOrSubnetUuid, boolean isVpc, Boolean isIpAccessControlFeatureEnabled) throws NuageVspAPIUtilException {
-        String egressFipAclEntryId = null;
-        //Handle FIPACLs only for VPC
-        if (isIpAccessControlFeatureEnabled && isVpc) {
-            try {
-                egressFipAclEntryId = applyFIPAccessControl(vpcOrSubnetUuid, domainId, NuageVspEntity.DOMAIN, sourceNatIpAccessControl, sourceNatIp, sourceNatIpUuid, nuageVspAPIParams);
-            } catch (Exception e) {
-                throw new NuageVspAPIUtilException(e.getMessage());
-            }
-        }
-
         String errorMessage = "";
         String fipExternalId = networkUuid + ":" + sourceNatIpUuid;
         //Check if the floating IP is already associated to the Domain/L2Domain
@@ -1120,16 +1048,6 @@ public class NuageVspApiUtil {
                 s_logger.debug("Created a new FloatingIP in Vsp " + floatingIpJson + " in FLoatingIP shared resource " + sharedResourceId);
             } catch (Exception e1) {
                 errorMessage = "Failed to create Floating in VSP using REST API " + e1.getMessage();
-                if (isIpAccessControlFeatureEnabled && isVpc && egressFipAclEntryId != null) {
-                    s_logger.debug("As the creation of FIP " + sourceNatIp + " failed reverting the FIP ACL that was created earlier");
-                    try {
-                        NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.EGRESS_FIP_ACLTEMPLATES_ENTRIES,
-                                egressFipAclEntryId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                                nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
-                    } catch (Exception e) {
-                        s_logger.warn("Failed to delete the FIP ACL Entry " + e.getMessage());
-                    }
-                }
             }
         }
 
@@ -1166,8 +1084,8 @@ public class NuageVspApiUtil {
         return errorMessage;
     }
 
-    public static void releaseFIPFromVsp(String networkUuid, String sourceNatIp, String staticNatUuid, String domainId, String vportId, String vspNetworkId,
-            NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, boolean isVpc, Boolean isIpAccessControlFeatureEnabled) throws Exception {
+    public static void releaseFIPFromVsp(String networkUuid, String staticNatUuid, String domainId, String vportId, String vspNetworkId,
+            NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams, boolean isVpc) throws Exception {
         //get the FIP
         String fipExternalId = networkUuid + ":" + staticNatUuid;
         String floatingIpId = findEntityIdByExternalUuid(attachedNetworkType.equals(NuageVspEntity.L2DOMAIN) ? NuageVspEntity.L2DOMAIN : NuageVspEntity.DOMAIN, domainId,
@@ -1203,14 +1121,6 @@ public class NuageVspApiUtil {
         }
 
         boolean rollbackFIPACL = false;
-        if (isIpAccessControlFeatureEnabled && isVpc) {
-            try {
-                applyFIPAccessControl(networkUuid, domainId, NuageVspEntity.DOMAIN, false, sourceNatIp, staticNatUuid, nuageVspAPIParams);
-            } catch (Exception e) {
-                throw new NuageVspAPIUtilException(e.getMessage());
-            }
-        }
-
         //Reset the floatingIpId in vport
         String errorMesage = "";
         if (StringUtils.isNotBlank(vportVspId)) {
@@ -1229,14 +1139,6 @@ public class NuageVspApiUtil {
             //Log the error message where the FIP release failed
             s_logger.error(errorMesage);
             rollbackFIPACL = true;
-        }
-        if (isIpAccessControlFeatureEnabled && isVpc && rollbackFIPACL) {
-            try {
-                s_logger.debug("As cleanup of FIP " + sourceNatIp + " failed, reverting deletion of FIP ACL and adding back the ACL");
-                applyFIPAccessControl(networkUuid, domainId, NuageVspEntity.DOMAIN, true, sourceNatIp, staticNatUuid, nuageVspAPIParams);
-            } catch (Exception e) {
-                throw new NuageVspAPIUtilException(e.getMessage());
-            }
         }
     }
 
@@ -1484,24 +1386,6 @@ public class NuageVspApiUtil {
 
         return errorMap;
     }
-
-    private static Map<String, Object> getEgressFIPAclEntry(String fipIP, String fipUuid, String accessControlledPorts) throws NuageVspAPIUtilException {
-        Map<String, Object> egressACLEntryEntity = new HashMap<String, Object>();
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_ETHER_TYPE.getAttributeName(), NuageVspConstants.ETHERTYPE_IP);
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_ACTION.getAttributeName(),NuageVspConstants.ACL_ACTION_DROP);
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_PROTOCOL.getAttributeName(), getProtocolNumber("TCP"));
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_DSCP.getAttributeName(), NuageVspConstants.STAR);
-        egressACLEntryEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), fipUuid);
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_PRIORITY.getAttributeName(), NuageVspApiUtil.getRandomPriority());
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_NETWORK_TYPE.getAttributeName(), NuageVspConstants.ANY);
-        //Address override with the NAT IP which is the source address
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_ADDR_OVERRIDE.getAttributeName(), fipIP + "/32");
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_LOCATION_TYPE.getAttributeName(), NuageVspConstants.ANY);
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_DEST_PORT.getAttributeName(), accessControlledPorts);
-        egressACLEntryEntity.put(NuageVspAttribute.EGRESS_FIP_ACLTEMPLATES_ENTRY_SOURCE_PORT.getAttributeName(), NuageVspConstants.STAR);
-        return egressACLEntryEntity;
-    }
-
 
     private static Map<String, Object> getEgressAclEntry(String vsdEnterpriseId, ACLRule rule, String sourceIp, String aclNetworkLocationId, long networkId,
             NuageVspAPIParams nuageVspAPIParams, String sourceCidr, boolean isUpdate, int oldPriority) throws NuageVspAPIUtilException {
@@ -1918,15 +1802,10 @@ public class NuageVspApiUtil {
             try {
                 String aclEntryJson = null;
                 Map<String, Object> aclEntryEntity = null;
-                if (aclTemplateType.equals(NuageVspEntity.EGRESS_FIP_ACLTEMPLATES)) {
-                    //Create Egress FIP ACL
-                    aclEntryEntity = getEgressFIPAclEntry(sourceIp, sourceIpUuid, "8080,80,8443,443");
-                } else {
-                    boolean isEgress = aclTemplateType.equals(NuageVspEntity.EGRESS_ACLTEMPLATES);
-                    aclEntryEntity = isEgress ? getEgressAclEntry(vsdEnterpriseId, rule, sourceIp, aclNetworkLocationId, networkId, nuageVspAPIParams, sourceCidr,
-                            false, -1) : getIngressAclEntry(vsdEnterpriseId, rule, aclNetworkLocationId, networkId, nuageVspAPIParams, sourceCidr, false, -1);
-                }
-                //create Egress/Egress FIP/Ingress ACL Entry
+                boolean isEgress = aclTemplateType.equals(NuageVspEntity.EGRESS_ACLTEMPLATES);
+                aclEntryEntity = isEgress ? getEgressAclEntry(vsdEnterpriseId, rule, sourceIp, aclNetworkLocationId, networkId, nuageVspAPIParams, sourceCidr,
+                        false, -1) : getIngressAclEntry(vsdEnterpriseId, rule, aclNetworkLocationId, networkId, nuageVspAPIParams, sourceCidr, false, -1);
+                //create Egress/Ingress ACL Entry
                 aclEntryJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         aclTemplateType, aclTemplateId, aclTemplateEntryType, aclEntryEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
                         nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
@@ -2009,7 +1888,7 @@ public class NuageVspApiUtil {
 
     public static void applyStaticNatInVSP(String networkName, String networkUuid, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, String attachedL2DomainOrDomainId, NuageVspEntity attachedNetworkType,
             String vspNetworkId, String vpcOrSubnetUuid, boolean isVpc, String staticNatIpAddress, String staticNatIpUuid, String staticNatVlanGateway, String staticNatVlanNetmask,
-            boolean isAccessControl, Boolean isIpAccessControlFeatureEnabled, String staticNatVanUuid, String nicIp4Address, String nicUuid, String vportId, String domainId) throws NuageVspAPIUtilException {
+            String staticNatVanUuid, String nicIp4Address, String nicUuid, String vportId, String domainId) throws NuageVspAPIUtilException {
         //check if the SharedNetwork exists in Vsp
         String vspSharedNetworkJson = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.SHARED_NETWORK, null, null,
                 NuageVspAttribute.SHARED_RESOURCE_NAME.getAttributeName(), staticNatVanUuid, nuageVspAPIParamsAsCmsUser);
@@ -2026,8 +1905,8 @@ public class NuageVspApiUtil {
                     + " in FloatingIP shared resource " + vspSharedNetworkId + " and associate it to VM with VPort " + vportId);
         }
         if (vportId != null) {
-            NuageVspApiUtil.allocateFIPToVPortInVsp(staticNatIpAddress, staticNatIpUuid, isAccessControl, networkUuid,
-                    vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc, isIpAccessControlFeatureEnabled);
+            NuageVspApiUtil.allocateFIPToVPortInVsp(staticNatIpAddress, staticNatIpUuid, networkUuid,
+                    vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportId, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc);
         } else {
             if (attachedNetworkType.equals(NuageVspEntity.DOMAIN)) {
                 String vportIdUsingNICUuid = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.SUBNET, vspNetworkId, NuageVspEntity.VPORT, nicUuid,
@@ -2035,8 +1914,8 @@ public class NuageVspApiUtil {
                 if (StringUtils.isNotBlank(vportIdUsingNICUuid)) {
                     s_logger.warn("NIC associated to Static NAT " + staticNatIpAddress + "(" + staticNatIpUuid + ") is not present in VSD. But, VM's VPort"
                             + " with externalID " + nicUuid + " exists in VSD. So, associate the FIP to the Vport " + vportIdUsingNICUuid);
-                    NuageVspApiUtil.allocateFIPToVPortInVsp(staticNatIpAddress, staticNatIpUuid, isAccessControl, networkUuid,
-                            vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportIdUsingNICUuid, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc, isIpAccessControlFeatureEnabled);
+                    NuageVspApiUtil.allocateFIPToVPortInVsp(staticNatIpAddress, staticNatIpUuid, networkUuid,
+                            vspSharedNetworkId, domainId != null ? domainId : attachedL2DomainOrDomainId, vportIdUsingNICUuid, attachedNetworkType, nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, isVpc);
                 } else {
                     StringBuffer errorMessage = new StringBuffer();
                     errorMessage.append("Static NAT ").append(staticNatIpAddress).append("(" + staticNatIpUuid + ") associated to network ").append(networkName)
