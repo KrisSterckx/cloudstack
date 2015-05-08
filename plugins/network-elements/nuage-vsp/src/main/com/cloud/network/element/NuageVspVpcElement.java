@@ -28,6 +28,7 @@ import java.util.Set;
 import javax.ejb.Local;
 import javax.inject.Inject;
 
+import com.cloud.util.NuageVspUtil;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -172,7 +173,8 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
         try {
             if (vpc.getState().equals(Vpc.State.Inactive)) {
-                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(guestPhysicalNetworkId));
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(guestPhysicalNetworkId, _nuageVspDao, _configDao);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(guestPhysicalNetworkId), nuageVspCmsId);
                 if (domainRouterUuid.size() > 0) {
                     for (String routerUuid : domainRouterUuid) {
                         String vmJsonString = NuageVspApiUtil.getVMDetails(domain.getUuid() + "(Enterprise uuid)", routerUuid, nuageVspAPIParamsAsCmsUser);
