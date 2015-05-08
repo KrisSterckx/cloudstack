@@ -198,6 +198,8 @@ public enum NuageVspAttribute {
     ENTERPRISEPERMISSION_PERMITTED_ENTITYYPE("permittedEntityType"),
     ENTERPRISEPERMISSION_PERMITTED_ACTION("permittedAction"),
 
+    //Cloud Management Systems
+    CLOUD_MGMT_SYSTEM_NAME("name");
     ;
 
     private static Map<String, NuageVspAttribute> lookup = new HashMap<String, NuageVspAttribute>();

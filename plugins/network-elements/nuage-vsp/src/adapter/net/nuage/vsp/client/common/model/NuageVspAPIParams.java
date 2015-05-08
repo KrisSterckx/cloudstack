@@ -17,6 +17,8 @@ public class NuageVspAPIParams {
 
     boolean isCmsUser;
 
+    String nuageVspCmsId;
+
     public boolean isCmsUser() {
         return isCmsUser;
     }
@@ -71,5 +73,13 @@ public class NuageVspAPIParams {
 
     public void setCurrentUserEnterpriseName(String cloudstackDomainName) {
         this.cloudstackDomainName = cloudstackDomainName;
+    }
+
+    public String getNuageVspCmsId() {
+        return nuageVspCmsId;
+    }
+
+    public void setNuageVspCmsId(String nuageVspCmsId) {
+        this.nuageVspCmsId = nuageVspCmsId;
     }
 }

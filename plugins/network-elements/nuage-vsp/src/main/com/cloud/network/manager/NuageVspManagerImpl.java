@@ -34,11 +34,14 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.agent.api.SyncNuageVspCmsIdAnswer;
+import com.cloud.agent.api.SyncNuageVspCmsIdCommand;
 import com.cloud.domain.Domain;
 import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.host.Status;
 import com.cloud.user.DomainManager;
+import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.fsm.StateListener;
 import com.cloud.utils.fsm.StateMachine2;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
@@ -50,6 +53,7 @@ import net.nuage.vsp.client.rest.NuageVspConstants;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
+import org.apache.cloudstack.framework.config.impl.ConfigurationVO;
 import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.MessageSubscriber;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
@@ -115,6 +119,8 @@ import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
+
+import static com.cloud.agent.api.SyncNuageVspCmsIdCommand.SyncType;
 
 @Local(value = {NuageVspManager.class})
 public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager, Configurable, StateListener<Status, Status.Event, Host> {
@@ -349,6 +355,16 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                         DetailVO detail = new DetailVO(host.getId(), "nuagevspdeviceid", String.valueOf(nuageVspDevice.getId()));
                         _hostDetailsDao.persist(detail);
 
+                        ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
+                        String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
+                        HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
+                        SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, host.getDetails(), SyncType.REGISTER);
+                        SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+
+                        if (answer != null && answer.getSuccess()) {
+                            registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
+                        }
+
                         validateDomainsOnVsp((HostVO) host);
 
                         return nuageVspDevice;
@@ -411,6 +427,15 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             }
         }
 
+        ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
+        HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
+        SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfig.getValue(), host.getDetails(), SyncType.UNREGISTER);
+        SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+
+        if (answer != null && answer.getSuccess()) {
+            _configDao.update("nuagevsp.cms.id", cmsIdConfig.getValue().replace(answer.getRegisteredNuageVspDevice(), ""));
+        }
+
         HostVO nuageHost = _hostDao.findById(nuageVspDevice.getHostId());
         Long hostId = nuageHost.getId();
 
@@ -449,6 +474,18 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         return responseList;
     }
 
+    private void registerNewNuageVspDevice(ConfigurationVO currentConfig, String registeredNuageVspDevice) {
+        if (currentConfig == null) {
+            ConfigKey<String> configKey = new ConfigKey<String>("Advanced", String.class, "nuagevsp.cms.id", registeredNuageVspDevice,
+                    "The CMS ID allocated by Nuage Vsp Devices - Do not edit", false);
+            ConfigurationVO configuration = new ConfigurationVO("management-server", configKey);
+            _configDao.persist(configuration);
+        } else {
+            String newValue = currentConfig.getValue() != null ? currentConfig.getValue() + registeredNuageVspDevice : registeredNuageVspDevice;
+            _configDao.update("nuagevsp.cms.id", newValue);
+        }
+    }
+
     @Override
     public boolean preStateTransitionEvent(Status oldState, Status.Event event, Status newState, Host host, boolean status, Object opaque) {
         return true;
@@ -456,10 +493,26 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
     @Override
     public boolean postStateTransitionEvent(StateMachine2.Transition<Status, Status.Event> transition, Host vo, boolean status, Object opaque) {
-        // Whenever a Nuage VSP Host comes up, check if all CS domains are present
+        // Whenever a Nuage VSP Host comes up, check if all CS domains are present and check if the CMS ID is valid
         if (transition.getToState() == Status.Up && vo instanceof HostVO) {
             HostVO host = (HostVO) vo;
             validateDomainsOnVsp(host);
+
+            List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
+            if (!CollectionUtils.isEmpty(nuageVspDevices)) {
+                for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                    ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
+                    String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
+                    SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, ((HostVO) host).getDetails(), SyncType.AUDIT);
+                    SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+
+                    if (answer != null && !answer.getSuccess()) {
+                        s_logger.fatal("Nuage VSP Device with ID " + nuageVspDevice.getId() + " is configured with an unknown CMS ID!");
+                    } else if (answer != null && answer.getSyncType() == SyncType.REGISTER) {
+                        registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
+                    }
+                }
+            }
         }
         return true;
     }
@@ -468,14 +521,17 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
         if (!CollectionUtils.isEmpty(nuageVspDevices)) {
             _hostDao.loadDetails(host);
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+            for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), _configDao);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host, nuageVspCmsId);
 
-            List<DomainVO> allDomains = _domainDao.listAll();
-            for (DomainVO domain : allDomains) {
-                try {
-                    NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
-                } catch (NuageVspAPIUtilException e) {
-                    s_logger.warn(e.getMessage());
+                List<DomainVO> allDomains = _domainDao.listAll();
+                for (DomainVO domain : allDomains) {
+                    try {
+                        NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
+                    } catch (NuageVspAPIUtilException e) {
+                        s_logger.warn(e.getMessage());
+                    }
                 }
             }
         }
@@ -504,9 +560,9 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
                     List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
                     for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
-                        HostVO host = _hostDao.findById(nuageVspDevice.getHostId());
-                        _hostDao.loadDetails(host);
-                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+                        HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
+                        String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), _configDao);
+                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host, nuageVspCmsId);
                         NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
                     }
                 } catch (NuageVspAPIUtilException e) {
@@ -642,6 +698,12 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                 TimeUnit.MILLISECONDS);
         scheduler.scheduleWithFixedDelay(new NuageVspSyncTask(NuageVspEntity.ENTERPRISE_NTWK_MACRO), ONE_MINUTE_MULTIPLIER * 15, ONE_MINUTE_MULTIPLIER * syncUpIntervalInMinutes,
                 TimeUnit.MILLISECONDS);
+    }
+
+    private HostVO findNuageVspHost(long hostId) {
+        HostVO host = _hostDao.findById(hostId);
+        _hostDao.loadDetails(host);
+        return host;
     }
 
     public class NuageVspSyncTask implements Runnable {

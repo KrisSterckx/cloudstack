@@ -26,6 +26,7 @@ import com.cloud.host.dao.HostDao;
 import com.cloud.network.Network;
 import com.cloud.network.NuageVspDeviceVO;
 import com.cloud.network.dao.NuageVspDao;
+import com.cloud.util.NuageVspUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 import com.cloud.offering.NetworkOffering;
 import net.nuage.vsp.client.rest.NuageVspApi;
@@ -43,6 +44,7 @@ import org.apache.cloudstack.api.response.NetworkOfferingResponse;
 import org.apache.cloudstack.api.response.PhysicalNetworkResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
 import org.apache.cloudstack.context.CallContext;
+import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -71,6 +73,8 @@ public class IssueNuageVspResourceRequestCmd extends BaseCmd {
     protected NuageVspDao _nuageConfigDao;
     @Inject
     HostDao _hostDao;
+    @Inject
+    ConfigurationDao _configDao;
 
     /////////////////////////////////////////////////////
     //////////////// API parameters /////////////////////
@@ -201,7 +205,8 @@ public class IssueNuageVspResourceRequestCmd extends BaseCmd {
                     int noofRetry = Integer.parseInt(nuageVspHost.getDetail("retrycount"));
                     long retryInterval = Long.parseLong(nuageVspHost.getDetail("retryinterval"));
 
-                    String resourceInfo = NuageVspApi.executeRestApi(requestTypeEnum, currentDomain.getName(), currentUserName, NuageVspEntity.lookup(resource), resourceId, childResource != null ? NuageVspEntity.lookup(childResource) : null, resourceFilter, restRelativePath, cmsUserInfo, noofRetry, retryInterval, false);
+                    String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(config.getId(), _configDao);
+                    String resourceInfo = NuageVspApi.executeRestApi(requestTypeEnum, currentDomain.getName(), currentUserName, NuageVspEntity.lookup(resource), resourceId, childResource != null ? NuageVspEntity.lookup(childResource) : null, resourceFilter, restRelativePath, cmsUserInfo, noofRetry, retryInterval, false, nuageVspCmsId);
                     NuageVspResourceResponse response = new NuageVspResourceResponse();
                     response.setResourceInfo(StringUtils.isBlank(resourceInfo) ? "" : resourceInfo);
                     response.setObjectName("nuagevspresource");
