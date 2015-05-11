@@ -314,6 +314,43 @@ public class NuageVspApiUtil {
         return enterpriseProfileId;
     }
 
+    public static void deleteEnterpriseInVsp(String enterpriseExternalUuid, String enterpriseDescription, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        try {
+            String enterpriseId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, enterpriseExternalUuid, nuageVspAPIParams);
+            if (StringUtils.isNotBlank(enterpriseId)) {
+                NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.ENTERPRISE,
+                        enterpriseId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
+                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                s_logger.debug("Enterprise " + enterpriseDescription + " is getting removed and it exists in NuageVSP. Deleted the enterprise " + enterpriseId + " from Nuage VSP");
+
+                deleteEnterpriseProfileInVsp(enterpriseExternalUuid, enterpriseDescription, nuageVspAPIParams);
+            }
+        } catch (Exception e) {
+            String errorMessage = "Failed to delete Enterprise in VPS using REST API. Json response from VSP REST API is "  + e.getMessage();
+            s_logger.error(errorMessage, e);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
+    }
+
+    private static void deleteEnterpriseProfileInVsp(String enterpriseExternalUuid, String enterpriseDescription, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        try {
+            String enterpriseProfileId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE_PROFILE, null, null, enterpriseExternalUuid, nuageVspAPIParams);
+            if (StringUtils.isNotBlank(enterpriseProfileId)) {
+                NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.ENTERPRISE_PROFILE,
+                        enterpriseProfileId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
+                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                s_logger.debug("Enterprise Profile " + enterpriseDescription + " is getting removed and it exists in NuageVSP. " +
+                        "Deleted the enterprise profile " + enterpriseProfileId + " from Nuage VSP");
+
+                deleteEnterpriseProfileInVsp(enterpriseExternalUuid, enterpriseDescription, nuageVspAPIParams);
+            }
+        } catch (Exception e) {
+            String errorMessage = "Failed to delete Enterprise Profile in VPS using REST API. Json response from VSP REST API is "  + e.getMessage();
+            s_logger.error(errorMessage, e);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
+    }
+
     public static String createUserInEnterprise(String vsdEnterpriseId, String userNameUuid, String firstName, String lastName, String email, String password,
             NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
         try {

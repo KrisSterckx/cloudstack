@@ -548,7 +548,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
     @DB
     private void initMessageBusListeners() {
-        // Create corresponding enterprise in VSP when creating a CS Domain
+        // Create corresponding enterprise and profile in VSP when creating a CS Domain
         _messageBus.subscribe(DomainManager.MESSAGE_ADD_DOMAIN_EVENT, new MessageSubscriber() {
             @Override
             public void onPublishMessage(String senderAddress, String subject, Object args) {
@@ -569,6 +569,25 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                     s_logger.error(e.getMessage());
                 } finally {
                     _domainDao.releaseFromLockTable(domain.getId());
+                }
+            }
+        });
+
+        // Delete corresponding enterprise and profile in VSP when deleting a CS Domain
+        _messageBus.subscribe(DomainManager.MESSAGE_REMOVE_DOMAIN_EVENT, new MessageSubscriber() {
+            @Override
+            public void onPublishMessage(String senderAddress, String subject, Object args) {
+                DomainVO domain = (DomainVO) args;
+                try {
+                    List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
+                    for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                        HostVO host = _hostDao.findById(nuageVspDevice.getHostId());
+                        _hostDao.loadDetails(host);
+                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+                        NuageVspApiUtil.deleteEnterpriseInVsp(domain.getUuid(), NuageVspApiUtil.getEnterpriseName(domain.getName(), domain.getPath()), nuageVspAPIParamsAsCmsUser);
+                    }
+                } catch (NuageVspAPIUtilException e) {
+                    s_logger.error(e.getMessage());
                 }
             }
         });
