@@ -230,8 +230,8 @@ import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.InterfaceDef;
 import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.InterfaceDef.guestNetType;
 import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.SerialDef;
 import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.TermPolicy;
-import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.VirtioSerialDef;
 import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.VideoDef;
+import com.cloud.hypervisor.kvm.resource.LibvirtVMDef.VirtioSerialDef;
 import com.cloud.hypervisor.kvm.storage.KVMPhysicalDisk;
 import com.cloud.hypervisor.kvm.storage.KVMStoragePool;
 import com.cloud.hypervisor.kvm.storage.KVMStoragePoolManager;
@@ -4044,6 +4044,16 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     }
 
     private void createVif(LibvirtVMDef vm, NicTO nic, String nicAdapter) throws InternalErrorException, LibvirtException {
+
+        // Nuage Vsp needs Virtual Router IP to be passed in the metadata
+        // get the virtual router IP information from broadcast uri
+        if (nic.getType().equals(TrafficType.Guest) && nic.getBroadcastType().equals(BroadcastDomainType.Vsp)) {
+            String vrIp = nic.getBroadcastUri().getPath().substring(1);
+            vm.getMetaData().getMetadataNode(LibvirtVMDef.NuageExtentionDef.class).addNuageExtention(nic.getMac(), vrIp);
+        } else {
+            s_logger.debug("NIC with MAC " + nic.getMac() + " and BroadcastDomainType " + nic.getBroadcastType() + " in network(" + nic.getGateway() + "/" + nic.getNetmask()
+                    + ") is " + nic.getType() + " traffic type. So, vsp-vr-ip is not set in the metadata");
+        }
         vm.getDevices().addDevice(getVifDriver(nic.getType()).plug(nic, vm.getPlatformEmulator().toString(), nicAdapter).toString());
     }
 
