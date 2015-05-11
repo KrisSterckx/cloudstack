@@ -23,6 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Maps;
+
 public class LibvirtVMDef {
     private String _hvsType;
     private static long s_libvirtVersion;
@@ -1252,6 +1254,53 @@ public class LibvirtVMDef {
         }
     }
 
+    public static class MetadataDef {
+        Map<String, Object> customNodes = new HashMap<>();
+
+        public <T> T getMetadataNode(Class<T> fieldClass) {
+            T field = (T) customNodes.get(fieldClass.getName());
+            if (field == null) {
+                try {
+                    field = fieldClass.newInstance();
+                    customNodes.put(field.getClass().getName(), field);
+                } catch (InstantiationException e) {
+                } catch (IllegalAccessException e) {
+                }
+            }
+            return field;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder fsBuilder = new StringBuilder();
+            fsBuilder.append("<metadata>\n");
+            for (Object field : customNodes.values()) {
+                fsBuilder.append(field.toString());
+            }
+            fsBuilder.append("</metadata>\n");
+            return fsBuilder.toString();
+        }
+    }
+
+    public static class NuageExtentionDef {
+        private Map<String, String> addresses = Maps.newHashMap();
+
+        public void addNuageExtention(String macAddress, String vrIp) {
+            addresses.put(macAddress, vrIp);
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder fsBuilder = new StringBuilder();
+            fsBuilder.append("<nuage-extension>\n");
+            for (Map.Entry<String, String> address : addresses.entrySet()) {
+                fsBuilder.append("  <interface mac='" + address.getKey() + "' vsp-vr-ip='" + address.getValue() + "'></interface>\n");
+            }
+            fsBuilder.append("</nuage-extension>\n");
+            return fsBuilder.toString();
+        }
+    }
+
     public void setHvsType(String hvs) {
         _hvsType = hvs;
     }
@@ -1302,6 +1351,15 @@ public class LibvirtVMDef {
             return (DevicesDef)o;
         }
         return null;
+    }
+
+    public MetadataDef getMetaData() {
+        MetadataDef o = (MetadataDef) components.get(MetadataDef.class.toString());
+        if (o == null) {
+            o = new MetadataDef();
+            addComp(o);
+        }
+        return o;
     }
 
     @Override
