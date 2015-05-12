@@ -282,7 +282,7 @@ public class NuageVspApiUtil {
                     allowAdvancedQOS = configProps.getBoolean("allowAdvancedQOS", NuageVspConstants.ENTERPRISE_PROFILE_ADV_QOS);
                     availableFwdClass = configProps.getString("availableFwdClass", NuageVspConstants.ENTERPRISE_PROFILE_FWD_CLASSES);
                 } catch (Exception e) {
-                    s_logger.error("vsp-default.properties file has invalid values. Please speficy proper value and retry", e);
+                    s_logger.error("vsp-default.properties file has invalid values. Please specify proper value and retry", e);
                 }
             } else {
                 floatingIpQuota = NuageVspConstants.ENTERPRISE_PROFILE_FLOATING_IP_QUOTA;
@@ -320,7 +320,7 @@ public class NuageVspApiUtil {
             if (StringUtils.isNotBlank(enterpriseId)) {
                 NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.ENTERPRISE,
                         enterpriseId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug("Enterprise " + enterpriseDescription + " is getting removed and it exists in NuageVSP. Deleted the enterprise " + enterpriseId + " from Nuage VSP");
 
                 deleteEnterpriseProfileInVsp(enterpriseExternalUuid, enterpriseDescription, nuageVspAPIParams);
@@ -338,7 +338,7 @@ public class NuageVspApiUtil {
             if (StringUtils.isNotBlank(enterpriseProfileId)) {
                 NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.ENTERPRISE_PROFILE,
                         enterpriseProfileId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug("Enterprise Profile " + enterpriseDescription + " is getting removed and it exists in NuageVSP. " +
                         "Deleted the enterprise profile " + enterpriseProfileId + " from Nuage VSP");
 
