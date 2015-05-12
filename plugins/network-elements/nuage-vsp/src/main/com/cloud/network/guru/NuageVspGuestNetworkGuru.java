@@ -14,6 +14,7 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 
 import com.cloud.offerings.NetworkOfferingVO;
+import com.cloud.util.NuageVspUtil;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -222,7 +223,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     @DB
     private void implementNetwork(Network network, NetworkOffering offering, Long physicalNetworkId, Collection<String[]> ipAddressRanges, Long vpcId, boolean isVpc,
             Domain networksDomain, AccountVO networksAccount) throws NuageVspAPIUtilException {
-        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(physicalNetworkId));
+        String nuageVspCmdId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(physicalNetworkId, _nuageVspDao, _configDao);
+        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(physicalNetworkId), nuageVspCmdId);
         String[] enterpriseAndGroupId = NuageVspApiUtil.getOrCreateVSPEnterpriseAndGroup(networksDomain.getName(), networksDomain.getPath(), networksDomain.getUuid(),
                 networksAccount.getAccountName(), networksAccount.getUuid(), nuageVspAPIParamsAsCmsUser);
 
@@ -304,7 +306,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         Object[] attachedNetworkDetails;
         boolean domainRouter = false;
         try {
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
+            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             long networkOwnedBy = network.getAccountId();
             //get the Account details and find the type
             AccountVO networkAccountDetails = _accountDao.findById(networkOwnedBy);
@@ -344,7 +347,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
             //now execute all the APIs a the network's account user. So reset the nuage API parameters
             NuageVspAPIParams nuageVspAPIParamsAsNtwkAccUser = NuageVspApiUtil.getNuageVspAPIParameters(networksDomain.getUuid(), networksAccount.getUuid(), false,
-                    getNuageVspHost(network.getPhysicalNetworkId()));
+                    getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             if (vmJsonString == null || StringUtils.isBlank(vmJsonString)) {
                 //VM does not exists in VSP. So, create the VM in VSP
                 vmInterfacesDetails = NuageVspApiUtil.createVMInVSP(vm.getInstanceName(), vm.getUuid(), vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser,
@@ -412,7 +415,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                             + vm.getVirtualMachine().getState());
                 }
                 // Execute a split API call to delete the VM
-                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
 
                 String vmJsonString = NuageVspApiUtil.getVMDetails(network.getUuid(), vm.getUuid(), nuageVspAPIParamsAsCmsUser);
 
@@ -517,7 +521,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             long domainId = network.getDomainId();
             Domain domain = _domainDao.findById(domainId);
             try {
-                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
 
                 String enterpriseId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, domain.getUuid(), nuageVspAPIParamsAsCmsUser);
                 if (StringUtils.isNotBlank(enterpriseId)) {

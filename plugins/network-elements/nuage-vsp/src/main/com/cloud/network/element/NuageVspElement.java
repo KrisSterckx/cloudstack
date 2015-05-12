@@ -23,6 +23,7 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.util.NuageVspUtil;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
 import net.nuage.vsp.client.common.model.ACLRule.ACLAction;
@@ -280,7 +281,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             Domain networksDomain = _domainDao.findById(network.getDomainId());
             NuageVspEntity attachedNetworkType = null;
             NetworkOfferingVO networkOferringVO = _ntwkOfferingDao.findById(network.getNetworkOfferingId());
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
+            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             String vpcOrSubnetUuid = null;
             String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
             String vspNetworkId = null;
@@ -334,7 +336,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                             vportJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParamsAsCmsUser.getCloudstackDomainName(),
                                     nuageVspAPIParamsAsCmsUser.getCurrentUserName(), NuageVspEntity.FLOATING_IP, fipId, NuageVspEntity.VPORT, null,
                                     nuageVspAPIParamsAsCmsUser.getRestRelativePath(), nuageVspAPIParamsAsCmsUser.getCmsUserInfo(), nuageVspAPIParamsAsCmsUser.getNoofRetry(),
-                                    nuageVspAPIParamsAsCmsUser.getRetryInterval(), nuageVspAPIParamsAsCmsUser.isCmsUser());
+                                    nuageVspAPIParamsAsCmsUser.getRetryInterval(), nuageVspAPIParamsAsCmsUser.isCmsUser(), nuageVspAPIParamsAsCmsUser.getNuageVspCmsId());
                         } catch (Exception e) {
                             if (s_logger.isDebugEnabled()) {
                                 s_logger.debug("Failed to get VPorts from VSP during FIP clean up. " + e.getMessage());
@@ -507,7 +509,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         DataCenter dc = _dcDao.findById(config.getDataCenterId());
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser;
         try {
-            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(config.getPhysicalNetworkId()));
+            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(config.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(config.getPhysicalNetworkId()), nuageVspCmsId);
         } catch (NuageVspAPIUtilException e) {
             throw new ResourceUnavailableException(e.getMessage(), Domain.class, dc.getId());
         }
@@ -579,12 +582,12 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                             vmInterfaceJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParamsAsCmsUser.getCloudstackDomainName(),
                                     nuageVspAPIParamsAsCmsUser.getCurrentUserName(), NuageVspEntity.SUBNET, vspNetworkId, NuageVspEntity.VM_INTERFACE, NuageVspAttribute.VM_INTERFACE_MAC.getAttributeName() + " == '"
                                             + nicVO.getMacAddress() + "'", nuageVspAPIParamsAsCmsUser.getRestRelativePath(), nuageVspAPIParamsAsCmsUser.getCmsUserInfo(),
-                                    nuageVspAPIParamsAsCmsUser.getNoofRetry(), nuageVspAPIParamsAsCmsUser.getRetryInterval(), nuageVspAPIParamsAsCmsUser.isCmsUser());
+                                    nuageVspAPIParamsAsCmsUser.getNoofRetry(), nuageVspAPIParamsAsCmsUser.getRetryInterval(), nuageVspAPIParamsAsCmsUser.isCmsUser(), nuageVspAPIParamsAsCmsUser.getNuageVspCmsId());
                         } else {
                             vmInterfaceJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParamsAsCmsUser.getCloudstackDomainName(),
                                     nuageVspAPIParamsAsCmsUser.getCurrentUserName(), NuageVspEntity.L2DOMAIN, attachedL2DomainOrDomainId, NuageVspEntity.VM_INTERFACE, NuageVspAttribute.VM_INTERFACE_MAC.getAttributeName() + " == '"
                                             + nicVO.getMacAddress() + "'", nuageVspAPIParamsAsCmsUser.getRestRelativePath(), nuageVspAPIParamsAsCmsUser.getCmsUserInfo(),
-                                    nuageVspAPIParamsAsCmsUser.getNoofRetry(), nuageVspAPIParamsAsCmsUser.getRetryInterval(), nuageVspAPIParamsAsCmsUser.isCmsUser());
+                                    nuageVspAPIParamsAsCmsUser.getNoofRetry(), nuageVspAPIParamsAsCmsUser.getRetryInterval(), nuageVspAPIParamsAsCmsUser.isCmsUser(), nuageVspAPIParamsAsCmsUser.getNuageVspCmsId());
                         }
                         if (StringUtils.isNotBlank(vmInterfaceJson)) {
                             //get the VportId from VMInterface
@@ -665,7 +668,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             String egressACLTempId = null;
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser = null;
             try {
-                nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()));
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+                nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
                 String vpcOrSubnetUuid = null;
                 try {
                     enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);

@@ -10,11 +10,18 @@ import com.cloud.agent.api.ReadyAnswer;
 import com.cloud.agent.api.ReadyCommand;
 import com.cloud.agent.api.StartupCommand;
 import com.cloud.agent.api.StartupNuageVspCommand;
+import com.cloud.agent.api.SyncNuageVspCmsIdAnswer;
+import com.cloud.agent.api.SyncNuageVspCmsIdCommand;
 import com.cloud.agent.api.UpdateNuageVspDeviceAnswer;
 import com.cloud.agent.api.UpdateNuageVspDeviceCommand;
 import com.cloud.host.Host;
 
+import com.cloud.util.NuageVspUtil;
+import com.cloud.utils.StringUtils;
+import net.nuage.vsp.client.common.model.NuageVspAPIParams;
+import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApi;
+import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
 import com.cloud.resource.ServerResource;
@@ -206,6 +213,8 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
             return executeRequest((MaintainCommand)cmd);
         } else if (cmd instanceof UpdateNuageVspDeviceCommand) {
             return executeRequest((UpdateNuageVspDeviceCommand)cmd);
+        } else if (cmd instanceof SyncNuageVspCmsIdCommand) {
+            return executeRequest((SyncNuageVspCmsIdCommand)cmd);
         }
         s_logger.debug("Received unsupported command " + cmd.toString());
         return Answer.createUnsupportedCommandAnswer(cmd);
@@ -233,5 +242,82 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
         } catch (Exception e) {
             return new UpdateNuageVspDeviceAnswer(cmd, e);
         }
+    }
+
+    private Answer executeRequest(SyncNuageVspCmsIdCommand cmd) {
+        if (cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.AUDIT || cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.AUDIT_ONLY) {
+            return auditNuageVspCmsId(cmd);
+        } else if (cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.REGISTER) {
+            return registerNuageVspCmsId(cmd);
+        } else {
+            return unregisterNuageVspCmsId(cmd);
+        }
+    }
+
+    private SyncNuageVspCmsIdAnswer auditNuageVspCmsId(SyncNuageVspCmsIdCommand cmd) {
+        String nuageVspDeviceId = String.valueOf(cmd.getNuageVspDeviceId());
+        String currentConfigValue = cmd.getCurrentCmsIdConfigValue();
+        boolean configContainsNuageVspDevice = StringUtils.isNotBlank(currentConfigValue) &&
+                (currentConfigValue.startsWith(nuageVspDeviceId + ":") || currentConfigValue.contains(";" + nuageVspDeviceId + ":"));
+
+        if (configContainsNuageVspDevice) {
+            //Check if the CMS ID is known by the Nuage VSP
+            s_logger.debug("Auditing VSD CMS configuration for Nuage VSP device with ID " + cmd.getNuageVspDeviceId());
+            try {
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(cmd.getNuageVspDeviceId(), currentConfigValue);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(cmd.getHostDetails(), null);
+                boolean knownCmsId = NuageVspApiUtil.isKnownCmsIdForNuageVsp(nuageVspCmsId, nuageVspAPIParamsAsCmsUser);
+                String registeredNuageVspDevice = getRegisteredNuageVspDevice(cmd.getNuageVspDeviceId(), nuageVspCmsId);
+
+                if (!knownCmsId) {
+                    return new SyncNuageVspCmsIdAnswer(false, registeredNuageVspDevice, SyncNuageVspCmsIdCommand.SyncType.AUDIT);
+                }
+                return new SyncNuageVspCmsIdAnswer(true, registeredNuageVspDevice, SyncNuageVspCmsIdCommand.SyncType.AUDIT);
+            } catch (NuageVspAPIUtilException e) {
+                s_logger.error("Failed to audit VSD CMS ID", e);
+                return new SyncNuageVspCmsIdAnswer(false, null, SyncNuageVspCmsIdCommand.SyncType.AUDIT);
+            }
+        } else if (cmd.getSyncType() != SyncNuageVspCmsIdCommand.SyncType.AUDIT_ONLY) {
+            return registerNuageVspCmsId(cmd);
+        }
+        return new SyncNuageVspCmsIdAnswer(false, null, SyncNuageVspCmsIdCommand.SyncType.AUDIT);
+    }
+
+    private SyncNuageVspCmsIdAnswer registerNuageVspCmsId(SyncNuageVspCmsIdCommand cmd) {
+        s_logger.debug("Creating VSD CMS configuration for Nuage VSP device with ID " + cmd.getNuageVspDeviceId());
+        try {
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(cmd.getHostDetails(), null);
+            String cmsId = NuageVspApiUtil.generateCmsIdForNuageVsp("CloudStack", nuageVspAPIParamsAsCmsUser);
+            String registeredNuageVspDevice = getRegisteredNuageVspDevice(cmd.getNuageVspDeviceId(), cmsId);
+            return new SyncNuageVspCmsIdAnswer(true, registeredNuageVspDevice, SyncNuageVspCmsIdCommand.SyncType.REGISTER);
+        } catch (NuageVspAPIUtilException e) {
+            s_logger.error("Failed to register VSD CMS ID", e);
+            return new SyncNuageVspCmsIdAnswer(false, null, SyncNuageVspCmsIdCommand.SyncType.REGISTER);
+        }
+    }
+
+    private SyncNuageVspCmsIdAnswer unregisterNuageVspCmsId(SyncNuageVspCmsIdCommand cmd) {
+        String nuageVspDeviceId = String.valueOf(cmd.getNuageVspDeviceId());
+        String currentConfigValue = cmd.getCurrentCmsIdConfigValue();
+        String[] configuredNuageVspDevices = StringUtils.isNotBlank(currentConfigValue) ? currentConfigValue.split(";") : new String[] {};
+
+        for (String configuredNuageVspDevice : configuredNuageVspDevices) {
+            if (configuredNuageVspDevice.startsWith(nuageVspDeviceId + ":")) {
+                s_logger.debug("Removing VSD CMS configuration for Nuage VSP device with ID " + cmd.getNuageVspDeviceId());
+                try {
+                    NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(cmd.getHostDetails(), null);
+                    boolean removed = NuageVspApiUtil.removeCmsIdForNuageVsp(configuredNuageVspDevice.split(":")[1], nuageVspAPIParamsAsCmsUser);
+                    return new SyncNuageVspCmsIdAnswer(removed, configuredNuageVspDevice + ";", SyncNuageVspCmsIdCommand.SyncType.UNREGISTER);
+                } catch (NuageVspAPIUtilException e) {
+                    s_logger.error("Failed to unregister VSD CMS ID", e);
+                    return new SyncNuageVspCmsIdAnswer(false, null, SyncNuageVspCmsIdCommand.SyncType.UNREGISTER);
+                }
+            }
+        }
+        return new SyncNuageVspCmsIdAnswer(false, NuageVspUtil.findNuageVspDeviceCmsId(cmd.getNuageVspDeviceId(), currentConfigValue), SyncNuageVspCmsIdCommand.SyncType.UNREGISTER);
+    }
+
+    private String getRegisteredNuageVspDevice(long nuageVspDeviceId, String cmsId) {
+        return nuageVspDeviceId + ":" + cmsId + ";";
     }
 }

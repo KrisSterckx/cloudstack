@@ -54,6 +54,7 @@ public enum NuageVspEntity {
     WAN_SERVICES("services", NuageVspAttribute.ID, NuageVspAttribute.WAN_SERVICE_VPN_CONNECT_ID),
     VPN_CONNECTION("vpnconnections", NuageVspAttribute.ID, NuageVspAttribute.VPN_CONNECTION_WANSERVICE_ID, NuageVspAttribute.VPN_CONNECTION_WANSERVICE_NAME),
     ENTERPRISEPERMISSION("enterprisepermissions", NuageVspAttribute.ID, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYID, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYYPE, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ACTION),
+    CLOUD_MGMT_SYSTEMS("cms", NuageVspAttribute.ID)
     ;
 
     private String entityType;

@@ -28,6 +28,7 @@ import net.nuage.vsp.client.exception.NuageVspException;
 import net.nuage.vsp.client.exception.UnSupportedNuageEntityException;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -112,57 +113,58 @@ public class NuageVspApi {
 
     public static volatile String apiKey = "";
 
-    ObjectMapper mapper = new ObjectMapper();
+    private static ObjectMapper mapper = new ObjectMapper();
 
     public NuageVspApi() {
 
     }
 
     public static String executeRestApi(RequestType requestType, String enterpriseName, String userName, NuageVspEntity nuageEntityType, String filter, String restRelativePath,
-            String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser) throws Exception {
+            String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser, String nuageVspCmsId) throws Exception {
         return executeRestApiWithRetry(requestType, enterpriseName, userName, nuageEntityType.getEntityType(), null, null, null, filter, restRelativePath, cmsUserInfo, noOfRetry,
-                retryInterval, true, isCmsUser);
+                retryInterval, true, isCmsUser, nuageVspCmsId);
     }
 
     public static String executeRestApi(RequestType requestType, String enterpriseName, String userName, NuageVspEntity nuageEntityType, Object entityDetails,
-            String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser) throws Exception {
+            String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser, String nuageVspCmsId) throws Exception {
         return executeRestApiWithRetry(requestType, enterpriseName, userName, nuageEntityType.getEntityType(), null, null, entityDetails, null, restRelativePath, cmsUserInfo,
-                noOfRetry, retryInterval, true, isCmsUser);
+                noOfRetry, retryInterval, true, isCmsUser, nuageVspCmsId);
     }
 
     public static String executeRestApi(RequestType requestType, String enterpriseName, String userName, NuageVspEntity nuageEntityType, String restRelativePath,
-            String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser) throws Exception {
+            String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser, String nuageVspCmsId) throws Exception {
         return executeRestApiWithRetry(requestType, enterpriseName, userName, nuageEntityType.getEntityType(), null, null, null, null, restRelativePath, cmsUserInfo, noOfRetry,
-                retryInterval, true, isCmsUser);
+                retryInterval, true, isCmsUser, nuageVspCmsId);
     }
 
     public static String executeRestApi(RequestType requestType, String enterpriseName, String userName, NuageVspEntity nuageEntityType, String entityId,
-            NuageVspEntity nuageChildEntityType, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser)
-            throws Exception {
+            NuageVspEntity nuageChildEntityType, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean isCmsUser,
+            String nuageVspCmsId) throws Exception {
         return executeRestApiWithRetry(requestType, enterpriseName, userName, nuageEntityType.getEntityType(), entityId,
-                nuageChildEntityType != null ? nuageChildEntityType.getEntityType() : null, null, filter, restRelativePath, cmsUserInfo, noOfRetry, retryInterval, true, isCmsUser);
+                nuageChildEntityType != null ? nuageChildEntityType.getEntityType() : null, null, filter, restRelativePath, cmsUserInfo, noOfRetry, retryInterval,
+                true, isCmsUser, nuageVspCmsId);
     }
 
     public static String executeRestApi(RequestType requestType, String enterpriseName, String userName, NuageVspEntity nuageEntityType, String entityId,
             NuageVspEntity nuageChildEntityType, Object entityDetails, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval,
-            boolean checkWarning, boolean isCmsUser) throws Exception {
+            boolean checkWarning, boolean isCmsUser, String nuageVspCmsId) throws Exception {
         return executeRestApi(requestType, enterpriseName, userName, nuageEntityType, entityId, nuageChildEntityType, entityDetails, filter, restRelativePath, cmsUserInfo,
-                noOfRetry, retryInterval, checkWarning, isCmsUser, null);
+                noOfRetry, retryInterval, checkWarning, isCmsUser, null, nuageVspCmsId);
     }
 
     public static String executeRestApi(RequestType requestType, String enterpriseName, String userName, NuageVspEntity nuageEntityType, String entityId,
             NuageVspEntity nuageChildEntityType, Object entityDetails, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval,
-            boolean checkWarning, boolean isCmsUser, List<Integer> retryNuageErrorCodes) throws Exception {
+            boolean checkWarning, boolean isCmsUser, List<Integer> retryNuageErrorCodes, String nuageVspCmsId) throws Exception {
         return executeRestApiWithRetry(requestType, enterpriseName, userName, nuageEntityType.getEntityType(), entityId,
                 nuageChildEntityType != null ? nuageChildEntityType.getEntityType() : null, entityDetails, filter, restRelativePath, cmsUserInfo, noOfRetry, retryInterval,
-                checkWarning, isCmsUser, retryNuageErrorCodes);
+                checkWarning, isCmsUser, retryNuageErrorCodes, nuageVspCmsId);
     }
 
     private static String executeRestApiWithRetry(RequestType type, String enterpriseName, String userName, String entityType, String entityId, String childEntityType,
-            Object entityDetails, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean checkWarning, boolean isCmsUser)
-            throws Exception {
+            Object entityDetails, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean checkWarning, boolean isCmsUser,
+            String nuageVspCmsId) throws Exception {
         return executeRestApiWithRetry(type, enterpriseName, userName, entityType, entityId, childEntityType, entityDetails, filter, restRelativePath, cmsUserInfo, noOfRetry,
-                retryInterval, checkWarning, isCmsUser, null);
+                retryInterval, checkWarning, isCmsUser, null, nuageVspCmsId);
     }
 
     /**
@@ -183,7 +185,7 @@ public class NuageVspApi {
      */
     private static String executeRestApiWithRetry(RequestType type, String enterpriseName, String userName, String entityType, String entityId, String childEntityType,
             Object entityDetails, String filter, String restRelativePath, String[] cmsUserInfo, int noOfRetry, long retryInterval, boolean checkWarning, boolean isCmsUser,
-            List<Integer> retryNuageErrorCodes) throws Exception {
+            List<Integer> retryNuageErrorCodes, String nuageVspCmsId) throws Exception {
         String response = null;
         int attempt = 1;
         long sleepTime = retryInterval;
@@ -192,7 +194,7 @@ public class NuageVspApi {
             StringBuffer url = new StringBuffer();
             try {
                 response = executeNuageApi(enterpriseName, userName, entityType, entityId, childEntityType, entityDetails, type, filter, restRelativePath, cmsUserInfo,
-                        checkWarning, isCmsUser, url);
+                        checkWarning, isCmsUser, url, nuageVspCmsId);
 
                 if (attempt > 1) {
                     s_logger.trace(String.format("After %s attempt, exception %s was handled and method %s was successfully executed ", --attempt, exception.getMessage(),
@@ -238,7 +240,8 @@ public class NuageVspApi {
      * @throws Exception
      */
     public static String executeNuageApi(String enterpriseName, String userName, String entityType, String entityId, String childEntityType, Object entityDetails,
-            RequestType type, String filter, String restRelativePath, String[] cmsUserInfo, boolean checkWarning, boolean isCmsUser, StringBuffer restUrl) throws Exception {
+                                         RequestType type, String filter, String restRelativePath, String[] cmsUserInfo, boolean checkWarning, boolean isCmsUser,
+                                         StringBuffer restUrl, String nuageVspCmsId) throws Exception {
         restUrl = new StringBuffer(restRelativePath);
         String entity = null;
         if (childEntityType != null) {
@@ -248,10 +251,10 @@ public class NuageVspApi {
         }
         if (type.equals(RequestType.GETALL)) {
             entity = executeHttpMethod(enterpriseName, userName, restUrl, null, type, apiKey, filter, cmsUserInfo, checkWarning, isCmsUser, childEntityType, entityType,
-                    restRelativePath);
+                    restRelativePath, nuageVspCmsId);
         } else if (type.equals(RequestType.GETRELATED)) {
             entity = executeHttpMethod(enterpriseName, userName, restUrl, null, type, apiKey, filter, cmsUserInfo, checkWarning, isCmsUser, childEntityType, entityType,
-                    restRelativePath);
+                    restRelativePath, nuageVspCmsId);
         } else {
             String jsonString = "";
             if (type.equals(RequestType.MODIFY) || type.equals(RequestType.DELETE) || type.equals(RequestType.GET)) {
@@ -264,17 +267,21 @@ public class NuageVspApi {
                 jsonString = ((JSONArray)entityDetails).toString();
             }
             entity = executeHttpMethod(enterpriseName, userName, restUrl, jsonString, type, apiKey, filter, cmsUserInfo, checkWarning, isCmsUser, childEntityType, entityType,
-                    restRelativePath);
+                    restRelativePath, nuageVspCmsId);
         }
         return entity;
     }
 
     private static String executeHttpMethod(String enterpriseName, String userName, StringBuffer url, String jsonString, RequestType type, String apiKey, String filter,
-            String[] cmsUserInfo, boolean checkWarning, boolean executeAsCmsUser, String childEntityType, String entityType, String restRelativePath) throws Exception {
+                                            String[] cmsUserInfo, boolean checkWarning, boolean executeAsCmsUser, String childEntityType, String entityType,
+                                            String restRelativePath, String nuageVspCmsId) throws Exception {
         HttpRequestBase httpMethod = null;
         HttpResponse response = null;
         String returnJsonString = null;
         try {
+            filter = FilterProcessor.processFilter(filter, nuageVspCmsId);
+            jsonString = initContentJson(jsonString, nuageVspCmsId);
+
             if (!checkWarning) {
                 url.append("?responseChoice=1");
             }
@@ -325,7 +332,76 @@ public class NuageVspApi {
                 httpMethod.releaseConnection();
             }
         }
-        return returnJsonString;
+        return initResponseJson(returnJsonString, nuageVspCmsId);
+    }
+
+    /**
+     * If externalID is used in the request content, parse it to the externalID format used in the VSD (nuageVspCmsId_objectUuid)
+     *
+     * @param json The request content
+     * @return The request content
+     */
+    private static String initContentJson(String json, String nuageVspCmsId) throws Exception {
+        if (StringUtils.isNotBlank(json) && StringUtils.isNotBlank(nuageVspCmsId)) {
+            Object entity = mapper.readValue(json, Object.class);
+            if (entity instanceof Map) {
+                processJsonEntity((Map<String, Object>) entity, nuageVspCmsId, true, false);
+                return mapper.writeValueAsString(entity);
+            }
+        }
+        return json;
+    }
+
+    /**
+     * If externalID is present in the response, parse it to the externalID format used in CS (objectUuid)
+     *
+     * @param json The response content
+     * @return The response content
+     */
+    private static String initResponseJson(String json, String nuageVspCmsId) throws Exception {
+        if (StringUtils.isNotBlank(json) && StringUtils.isNotBlank(nuageVspCmsId)) {
+            List<Map<String, Object>> entities = mapper.readValue(json, List.class);
+            for (Map<String, Object> entity : entities) {
+                processJsonEntity(entity, nuageVspCmsId, false, true);
+            }
+            return mapper.writeValueAsString(entities);
+        }
+        return json;
+    }
+
+    private static void processJsonEntity(Map<String, Object> jsonEntity, String nuageVspCmsId, boolean build, boolean revert) {
+        for (String field : jsonEntity.keySet()) {
+            if (ArrayUtils.indexOf(FilterProcessor.EXTERNAL_ID_FIELDS, field) != -1) {
+                String value = (String) jsonEntity.get(field);
+                if (StringUtils.isNotBlank(value)) {
+                    if (revert && value.startsWith(nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER)) {
+                        String[] externalIdSplitted = value.split(NuageVspConstants.EXTERNAL_ID_DELIMITER);
+                        String csExternalId = "";
+                        for (int i = 1; i < externalIdSplitted.length; i++) {
+                            csExternalId += externalIdSplitted[i];
+                            if (i < externalIdSplitted.length - 1) {
+                                csExternalId += NuageVspConstants.EXTERNAL_ID_DELIMITER;
+                            }
+                        }
+                        jsonEntity.put(field, csExternalId);
+                    } else if (build && !value.startsWith(nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER)) {
+                        String vsdExternalId = nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER + value;
+                        jsonEntity.put(field, vsdExternalId);
+                    }
+                }
+            } else {
+                Object value = jsonEntity.get(field);
+                if (value != null && value instanceof Map) {
+                    processJsonEntity((Map<String, Object>) value, nuageVspCmsId, build, revert);
+                } else if (value != null && value instanceof List) {
+                    for (Object entity : (List) value) {
+                        if (entity instanceof Map) {
+                            processJsonEntity((Map<String, Object>) entity, nuageVspCmsId, build, revert);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static void setHttpHeaders(String[] cmsUserInfo, HttpRequestBase httpRequest, String proxyUser, StringBuffer url, boolean isCmsUser, String apiKey) {
@@ -353,7 +429,7 @@ public class NuageVspApi {
         url.append("/").append(NuageVspEntity.ME.getEntityType());
 
         String jsonResponseString = executeHttpMethod(cmsUserInfo[0], cmsUserInfo[1], url, null, RequestType.GET, cmsUserInfo[2], null, cmsUserInfo, true, isCmsUser, null,
-                NuageVspEntity.ME.getEntityType(), restRelativePath);
+                NuageVspEntity.ME.getEntityType(), restRelativePath, null);
 
         List<Map<String, Object>> jsonResponse = parseJsonString(NuageVspEntity.ME, jsonResponseString);
         if (jsonResponse != null && jsonResponse.size() > 0) {

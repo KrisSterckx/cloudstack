@@ -61,12 +61,13 @@ public class NuageVspApiUtil {
         vmEntity.put(NuageVspAttribute.VM_NAME.getAttributeName(), vmInstanceName);
         vmEntity.put(NuageVspAttribute.VM_UUID.getAttributeName(), vmUuid);
         vmEntity.put(NuageVspAttribute.VM_INTERFACES.getAttributeName(), vmInterfaceList);
+        vmEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vmUuid);
 
         try {
             String vmJsonString = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParamsAsAccUser.getCloudstackDomainName(),
                     nuageVspAPIParamsAsAccUser.getCurrentUserName(), NuageVspEntity.VM, vmEntity, nuageVspAPIParamsAsAccUser.getRestRelativePath(),
                     nuageVspAPIParamsAsAccUser.getCmsUserInfo(), nuageVspAPIParamsAsAccUser.getNoofRetry(), nuageVspAPIParamsAsAccUser.getRetryInterval(),
-                    nuageVspAPIParamsAsAccUser.isCmsUser());
+                    nuageVspAPIParamsAsAccUser.isCmsUser(), nuageVspAPIParamsAsAccUser.getNuageVspCmsId());
             List<Map<String, Object>> vmDetails = NuageVspApi.parseJsonString(NuageVspEntity.VM, vmJsonString);
             s_logger.debug("Created VM in Nuage. Response from VSP is " + vmJsonString);
             return (String)vmDetails.iterator().next().get(NuageVspAttribute.VM_INTERFACES.getAttributeName());
@@ -92,7 +93,7 @@ public class NuageVspApiUtil {
                 String vmInterface = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParamsAsAccUser.getCloudstackDomainName(),
                         nuageVspAPIParamsAsAccUser.getCurrentUserName(), NuageVspEntity.VM, vmId, NuageVspEntity.VM_INTERFACE, vmInterfaceList.iterator().next(), null,
                         nuageVspAPIParamsAsAccUser.getRestRelativePath(), nuageVspAPIParamsAsAccUser.getCmsUserInfo(), nuageVspAPIParamsAsAccUser.getNoofRetry(),
-                        nuageVspAPIParamsAsAccUser.getRetryInterval(), true, nuageVspAPIParamsAsAccUser.isCmsUser());
+                        nuageVspAPIParamsAsAccUser.getRetryInterval(), true, nuageVspAPIParamsAsAccUser.isCmsUser(), nuageVspAPIParamsAsAccUser.getNuageVspCmsId());
                 s_logger.debug("Added VM interface to VM in Nuage. Response from VSP is " + vmJsonString);
                 return vmInterface;
             } catch (Exception exception) {
@@ -110,7 +111,7 @@ public class NuageVspApiUtil {
         try {
             NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.VM_INTERFACE,
                     vmInterfaceID, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("VM Interface is getting destroyed for VM with UUID " + vmUuid + " and it exists in NuageVSP. Deleted the VM interface " + vmInterfaceID
                     + " from Nuage VSP");
         } catch (Exception exception) {
@@ -124,7 +125,7 @@ public class NuageVspApiUtil {
         try {
             NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.VM, vmId, null,
                     null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("VM " + vmUuid + " is getting destroyed and it exists in NuageVSP. Deleted the VM " + vmId + " from Nuage VSP");
         } catch (Exception exception) {
             s_logger.error(
@@ -138,7 +139,7 @@ public class NuageVspApiUtil {
         try {
             vmJsonString = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.VM,
                     NuageVspAttribute.VM_UUID.getAttributeName() + " == '" + vmUuid + "'", nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
         } catch (Exception exception) {
             String errorMessage = "Failed to execute REST API call to VSP to get VM with UUID " + vmUuid
                     + ". So, Failed to get IP for the VM from VSP address for network or enterprise " + networkUuid + ".  Json response from VSP REST API is  "
@@ -213,7 +214,8 @@ public class NuageVspApiUtil {
                     macroEntity.put(NuageVspAttribute.ENTERPRISE_NTWK_MACRO_NETMASK.getAttributeName(), netmask);
                     String macroJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                             NuageVspEntity.ENTERPRISE, vsdEnterpriseId, NuageVspEntity.ENTERPRISE_NTWK_MACRO, macroEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(),
+                            nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug("Created Enterprise Network Macro in VSP. Response from VSP is " + macroJson);
                     return getEntityId(macroJson, NuageVspEntity.ENTERPRISE_NTWK_MACRO);
                 } catch (Exception exception) {
@@ -248,7 +250,7 @@ public class NuageVspApiUtil {
         try {
             String enterpriseJsonString = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                     NuageVspEntity.ENTERPRISE, enterpriseEntity, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             return getEntityId(enterpriseJsonString, NuageVspEntity.ENTERPRISE);
         } catch (Exception e) {
             String errorMessage = "Failed to create Enterprise in VSP using REST API. So, Enterprise could not be created in VSP " + " for domain " + enterpriseExternalUuid
@@ -300,7 +302,7 @@ public class NuageVspApiUtil {
             try {
                 String enterpriseJsonString = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         NuageVspEntity.ENTERPRISE_PROFILE, enterpriseProfileEntity, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 return getEntityId(enterpriseJsonString, NuageVspEntity.ENTERPRISE_PROFILE);
             } catch (Exception e) {
                 String errorMessage = "Failed to create Enterprise Profile in VSP using REST API. So, Enterprise could not be created in VSP " + " for domain "
@@ -364,7 +366,8 @@ public class NuageVspApiUtil {
 
             String userJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                     NuageVspEntity.ENTERPRISE, vsdEnterpriseId, NuageVspEntity.USER, groupEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(),
+                    nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("Created user in VSP. Response from VSP is " + userJson);
             return getEntityId(userJson, NuageVspEntity.USER);
         } catch (Exception exception) {
@@ -379,7 +382,7 @@ public class NuageVspApiUtil {
             //Add users to the group
             NuageVspApi.executeRestApi(RequestType.MODIFYRELATED, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), entityType, entityId,
                     NuageVspEntity.GROUP, groupIds, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("Added permission for entity " + entityType + " id " + entityId + " with groups " + groupIds);
         } catch (Exception exception) {
             String errorMessage = "Failed to add permission for entity " + entityType + " id " + entityId + ".  Json response from VSP REST API is  " + exception.getMessage();
@@ -399,7 +402,8 @@ public class NuageVspApiUtil {
 
             String groupJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                     NuageVspEntity.ENTERPRISE, vsdEnterpriseId, NuageVspEntity.GROUP, groupEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(),
+                    nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("Created group for project or account " + projectOrAccountUuid + " in VSP . Response from VSP is " + groupJson);
             return getEntityId(groupJson, NuageVspEntity.GROUP);
         } catch (Exception exception) {
@@ -414,7 +418,7 @@ public class NuageVspApiUtil {
             //Add users to the group
             NuageVspApi.executeRestApi(RequestType.MODIFYRELATED, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.GROUP,
                     vsdGroupId, NuageVspEntity.USER, userIds, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
         } catch (Exception exception) {
             String errorMessage = "Failed to add Users for project or account in VSD " + vsdGroupId + ".  Json response from VSP REST API is  " + exception.getMessage();
             s_logger.error(errorMessage, exception);
@@ -507,7 +511,8 @@ public class NuageVspApiUtil {
                 try {
                     String domainTemplateJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                             NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                            nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug(debugMessage + " Created DomainTemplate for network " + networkName + " in VSP . Response from VSP is " + domainTemplateJson);
                     domainTemplateId = getEntityId(domainTemplateJson, NuageVspEntity.DOMAIN_TEMPLATE);
                 } catch (Exception exception) {
@@ -569,7 +574,8 @@ public class NuageVspApiUtil {
 
                 String domainJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, domainEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                        nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug(debugMessage + " Created Domain for network " + networkName + " in VSP . Response from VSP is " + domainJson);
                 domainId = getEntityId(domainJson, NuageVspEntity.DOMAIN);
             }
@@ -596,7 +602,7 @@ public class NuageVspApiUtil {
 
                 String zoneJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, zoneEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 zoneId = getEntityId(zoneJson, NuageVspEntity.ZONE);
                 s_logger.debug(debugMessage + "Created Zone for network " + networkName + " in VSP . Response from VSP is " + zoneJson);
                 //set permission to use the Zone
@@ -631,7 +637,7 @@ public class NuageVspApiUtil {
                             //Check if the gateway has the enterprisePermission
                             String enterprisePermissionJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.GATEWAY, gatewayId,
                                     NuageVspEntity.ENTERPRISEPERMISSION, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                             List<Map<String, Object>> permissionDetails = parseJson(enterprisePermissionJson, NuageVspEntity.ENTERPRISEPERMISSION);
                             boolean isPermitted = false;
                             for (Map<String, Object> permission : permissionDetails) {
@@ -648,12 +654,13 @@ public class NuageVspApiUtil {
                                 permission.put(NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ACTION.getAttributeName(), "USE");
                                 NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                                         NuageVspEntity.GATEWAY, gatewayId, NuageVspEntity.ENTERPRISEPERMISSION, permission, null, nuageVspAPIParams.getRestRelativePath(),
-                                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                                        nuageVspAPIParams.getNuageVspCmsId());
                             }
                             // Then get all the services that is not attached to the gateway
                             String wanServiceJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.GATEWAY, gatewayId,
                                     NuageVspEntity.WAN_SERVICES, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                             if (StringUtils.isNotBlank(wanServiceJson)) {
                                 List<Map<String, Object>> wanServices = parseJson(wanServiceJson, NuageVspEntity.WAN_SERVICES);
                                 String availableWanserviceId = null;
@@ -672,7 +679,8 @@ public class NuageVspApiUtil {
                                     vpnConnection.put(NuageVspAttribute.VPN_CONNECTION_WANSERVICE_ID.getAttributeName(), availableWanserviceId);
                                     NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                                             NuageVspEntity.DOMAIN, domainId, NuageVspEntity.VPN_CONNECTION, vpnConnection, null, nuageVspAPIParams.getRestRelativePath(),
-                                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                                            nuageVspAPIParams.getNuageVspCmsId());
                                     break;
                                 } else {
                                     s_logger.debug("There are no free WAN Services available on the Gateway with systemID " + gatewaySystemId + " in VSP");
@@ -708,7 +716,7 @@ public class NuageVspApiUtil {
 
                 String subnetJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         NuageVspEntity.ZONE, zoneId, NuageVspEntity.SUBNET, subnetEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 subnetId = getEntityId(subnetJson, NuageVspEntity.SUBNET);
                 s_logger.debug(debugMessage + " Created subnet for network " + networkName + " in VSP. Response from VSP is " + subnetJson);
 
@@ -735,7 +743,8 @@ public class NuageVspApiUtil {
                 subnetAddressRange.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), networkUuid);
                 String addressRangeJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         nuageVspEntity, networkId, NuageVspEntity.ADDRESS_RANGE, subnetAddressRange, null, nuageVspAPIParams.getRestRelativePath(),
-                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                        nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug(debugMessage + " Created subnet Address Range for network " + networkName + " in VSP. Response from VSP is " + addressRangeJson);
             }
         } catch (Exception exception) {
@@ -782,7 +791,7 @@ public class NuageVspApiUtil {
                             NuageVspApi.executeRestApi(RequestType.MODIFY, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                                     NuageVspEntity.DHCP_OPTIONS, dhcpOptionId, null, existingDhcpOptions, null, nuageVspAPIParams.getRestRelativePath(),
                                     nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
-                                    nuageVspAPIParams.isCmsUser());
+                                    nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                             s_logger.debug("Network (" + networkName + ") DNS server's setting " + dhcpOptionValue + " is changed to new value "
                                     + existingDhcpOptions.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName()) + ". So, the DHCPOption for the network is updated");
                             return;
@@ -797,7 +806,8 @@ public class NuageVspApiUtil {
             if (existingDhcpOptions != null) {
                 String addressRangeJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         nuageVspEntity, networkId, NuageVspEntity.DHCP_OPTIONS, existingDhcpOptions, null, nuageVspAPIParams.getRestRelativePath(),
-                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                        nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug(debugMessage + " Created DHCP options for network " + networkName + " in VSP. Response from VSP is " + addressRangeJson);
             }
         } catch (Exception exception) {
@@ -851,7 +861,8 @@ public class NuageVspApiUtil {
             try {
                 String l2domainTemplateJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         NuageVspEntity.ENTERPRISE, entepriseId, NuageVspEntity.L2DOMAIN_TEMPLATE, l2domainTemplateEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                        nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug("Created L2DomainTemplate for network " + networkName + " in VSP . Response from VSP is " + l2domainTemplateJson);
                 l2domainTemplateId = getEntityId(l2domainTemplateJson, NuageVspEntity.L2DOMAIN_TEMPLATE);
                 //create Address Ranges
@@ -875,7 +886,8 @@ public class NuageVspApiUtil {
 
                     String l2DomainJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                             NuageVspEntity.ENTERPRISE, entepriseId, NuageVspEntity.L2DOMAIN, L2domainEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                            nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug("Created L2Domain for network " + networkName + " in VSP . Response from VSP is " + l2DomainJson);
                     l2DomainId = getEntityId(l2DomainJson, NuageVspEntity.L2DOMAIN);
 
@@ -999,7 +1011,7 @@ public class NuageVspApiUtil {
             NuageVspAPIParams nuageVspAPIParams, boolean throwExceptionIfNotPresent) throws Exception {
         String aclTemplates = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                 attachedNetworkType, attachedTemplateId, aclType, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
         if (StringUtils.isNotBlank(aclTemplates)) {
             //Get the ACLEntries...
             return parseJson(aclTemplates, aclType);
@@ -1050,7 +1062,7 @@ public class NuageVspApiUtil {
         try {
             String sharedResourceJsonString = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                     NuageVspEntity.SHARED_NETWORK, sharedNtwkEntity, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             sharedResourceId = getEntityId(sharedResourceJsonString, NuageVspEntity.SHARED_NETWORK);
             s_logger.debug("Nuage Vsp Shared Network is not available. So, created a new Shared Network " + sourceNatNetworkUuid);
         } catch (Exception e) {
@@ -1080,7 +1092,7 @@ public class NuageVspApiUtil {
                 String floatingIpJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         attachedNetworkType.equals(NuageVspEntity.L2DOMAIN) ? NuageVspEntity.L2DOMAIN : NuageVspEntity.DOMAIN, domainId, NuageVspEntity.FLOATING_IP,
                         floatingIPEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                        nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 floatingIpId = getEntityId(floatingIpJson, NuageVspEntity.FLOATING_IP);
                 s_logger.debug("Created a new FloatingIP in Vsp " + floatingIpJson + " in FLoatingIP shared resource " + sharedResourceId);
             } catch (Exception e1) {
@@ -1112,7 +1124,7 @@ public class NuageVspApiUtil {
         try {
             NuageVspApi.executeRestApi(RequestType.MODIFY, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.VPORT, vportId,
                     null, vportEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
         } catch (Exception e) {
             if (!isNoChangeInEntityException(e)) {
                 errorMessage = "Failed to associated the FloatingIP " + floatingIPId + " to the VPort " + vportId + e.getMessage();
@@ -1137,7 +1149,7 @@ public class NuageVspApiUtil {
                 String vportJson = null;
                 vportJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         NuageVspEntity.FLOATING_IP, floatingIpId, NuageVspEntity.VPORT, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 if (StringUtils.isNotBlank(vportJson)) {
                     List<Map<String, Object>> vports = NuageVspApiUtil.parseJson(vportJson, NuageVspEntity.VPORT);
                     for (Map<String, Object> vport : vports) {
@@ -1192,7 +1204,7 @@ public class NuageVspApiUtil {
 
             String egressACL = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), domainType,
                     domainId, NuageVspEntity.EGRESS_ACLTEMPLATES, egressACLEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             egressACLTempId = NuageVspApiUtil.getEntityId(egressACL, NuageVspEntity.EGRESS_ACLTEMPLATES);
             s_logger.debug("Created EgressACLTemplate for network " + networkName + " in VSP . Response from VSP is " + egressACL);
         }
@@ -1235,7 +1247,7 @@ public class NuageVspApiUtil {
 
             String ingressACL = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), domainType,
                     domainId, NuageVspEntity.INGRESS_ACLTEMPLATES, ingressACLEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             ingressACLTempId = NuageVspApiUtil.getEntityId(ingressACL, NuageVspEntity.INGRESS_ACLTEMPLATES);
             s_logger.debug("Created IngressACLTemplate for network " + networkName + " in VSP . Response from VSP is " + ingressACL);
         }
@@ -1289,7 +1301,7 @@ public class NuageVspApiUtil {
             String ingressACLEntry = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                     NuageVspEntity.INGRESS_ACLTEMPLATES, aclTemplateId, NuageVspEntity.INGRESS_ACLTEMPLATES_ENTRIES, ingressACLEntryEntity, null,
                     nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
-                    nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("Created Default IngressACLTemplateEntry for network " + networkName + " in VSP . Response from VSP is " + ingressACLEntry);
         } else {
             Map<String, Object> egressACLEntryEntity = null;
@@ -1311,7 +1323,7 @@ public class NuageVspApiUtil {
             String ingressACLEntry = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                     NuageVspEntity.EGRESS_ACLTEMPLATES, aclTemplateId, NuageVspEntity.EGRESS_ACLTEMPLATES_ENTRIES, egressACLEntryEntity, null,
                     nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
-                    nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("Created Default egressACLTemplateEntry for network " + networkName + " in VSP . Response from VSP is " + ingressACLEntry);
         }
     }
@@ -1350,7 +1362,8 @@ public class NuageVspApiUtil {
                 if (!rule.isNotModified(rule, modifiedEgressACLEntryEntity, egressEntryData)) {
                     String egressAclEntryJson = NuageVspApi.executeRestApi(RequestType.MODIFY, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                             NuageVspEntity.EGRESS_ACLTEMPLATES_ENTRIES, egressAclEntryId, null, modifiedEgressACLEntryEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
+                            nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug("Modified Egress ACL Entry for rule " + rule + " with CIDR " + sourceCidr + " in VSP. Response from VSP is " + egressAclEntryJson);
                 }
             } catch (Exception exception) {
@@ -1407,7 +1420,7 @@ public class NuageVspApiUtil {
                     String ingressAclEntryJson = NuageVspApi.executeRestApi(RequestType.MODIFY, nuageVspAPIParams.getCloudstackDomainName(),
                             nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.INGRESS_ACLTEMPLATES_ENTRIES, ingressAclEntryId, null, modifiedIngressACLEntryEntity, null,
                             nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(),
-                            false, nuageVspAPIParams.isCmsUser());
+                            false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug("Updated Ingress ACL Entry for rule " + rule + " with CIDR " + sourceCidr + " in VSP. Response from VSP is " + ingressAclEntryJson);
                 }
             } catch (Exception exception) {
@@ -1547,7 +1560,7 @@ public class NuageVspApiUtil {
                     String childEntityId = (String)entity.get(NuageVspAttribute.ID.getAttributeName());
                     NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), childEntityType,
                             childEntityId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                            nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                            nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug("Successfully cleaned stale VSP entity " + childEntityType + " with ID " + childEntityId);
                 }
             }
@@ -1563,7 +1576,7 @@ public class NuageVspApiUtil {
         try {
             jsonString = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), entityType, entityId,
                     childEntityType, filterValue, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
             return jsonString;
         } catch (Exception exception) {
             String errorMessage = "Failed to execute REST API call to VSP to get " + entityType + " using VSP filter " + filterValue + ".  Json response from VSP REST API is  "
@@ -1573,19 +1586,27 @@ public class NuageVspApiUtil {
         }
     }
 
-    public static NuageVspAPIParams getNuageVspAPIParametersAsCmsUser(HostVO nuageVspHost) {
-        return getNuageVspAPIParameters(null, null, true, nuageVspHost);
+    public static NuageVspAPIParams getNuageVspAPIParametersAsCmsUser(HostVO nuageVspHost, String nuageVspCmsId) {
+        return getNuageVspAPIParameters(null, null, true, nuageVspHost, nuageVspCmsId);
     }
 
-    public static NuageVspAPIParams getNuageVspAPIParameters(String domainUuid, String userUuid, boolean executeAsCmsUser, HostVO nuageVspHost) {
+    public static NuageVspAPIParams getNuageVspAPIParametersAsCmsUser(Map<String, String> hostDetails, String nuageVspCmsId) {
+        return getNuageVspAPIParameters(null, null, true, hostDetails, nuageVspCmsId);
+    }
+
+    public static NuageVspAPIParams getNuageVspAPIParameters(String domainUuid, String userUuid, boolean executeAsCmsUser, HostVO nuageVspHost, String nuageVspCmsId) {
+        return getNuageVspAPIParameters(domainUuid, userUuid, executeAsCmsUser, nuageVspHost.getDetails(), nuageVspCmsId);
+    }
+
+    public static NuageVspAPIParams getNuageVspAPIParameters(String domainUuid, String userUuid, boolean executeAsCmsUser, Map<String, String> hostDetails, String nuageVspCmsId) {
         NuageVspAPIParams nuageVspAPIParams = null;
         nuageVspAPIParams = new NuageVspAPIParams();
-        nuageVspAPIParams.setRestRelativePath(new StringBuffer().append("https://").append(nuageVspHost.getDetail("hostname")).append(":").append(nuageVspHost.getDetail("port"))
-                .append(nuageVspHost.getDetail("apirelativepath")).toString());
-        nuageVspAPIParams.setCmsUserInfo(new String[] {NuageVspConstants.CMS_USER_ENTEPRISE_NAME, nuageVspHost.getDetail("cmsuser"),
-                org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.decodeBase64(nuageVspHost.getDetail("cmsuserpass")))});
-        nuageVspAPIParams.setNoofRetry(Integer.parseInt(nuageVspHost.getDetail("retrycount")));
-        nuageVspAPIParams.setRetryInterval(Long.parseLong(nuageVspHost.getDetail("retryinterval")));
+        nuageVspAPIParams.setRestRelativePath(new StringBuffer().append("https://").append(hostDetails.get("hostname")).append(":").append(hostDetails.get("port"))
+                .append(hostDetails.get("apirelativepath")).toString());
+        nuageVspAPIParams.setCmsUserInfo(new String[] {NuageVspConstants.CMS_USER_ENTEPRISE_NAME, hostDetails.get("cmsuser"),
+                org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.decodeBase64(hostDetails.get("cmsuserpass")))});
+        nuageVspAPIParams.setNoofRetry(Integer.parseInt(hostDetails.get("retrycount")));
+        nuageVspAPIParams.setRetryInterval(Long.parseLong(hostDetails.get("retryinterval")));
 
         if (!executeAsCmsUser) {
             //Hack to remove "-" from UserUuId. This is because VSP limits the username to less than 32 character
@@ -1594,6 +1615,7 @@ public class NuageVspApiUtil {
             nuageVspAPIParams.setCurrentUserEnterpriseName(domainUuid);
         }
         nuageVspAPIParams.setCmsUser(executeAsCmsUser);
+        nuageVspAPIParams.setNuageVspCmsId(nuageVspCmsId);
         return nuageVspAPIParams;
     }
 
@@ -1683,7 +1705,7 @@ public class NuageVspApiUtil {
         try {
             NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), entityToBeCleaned,
                     entityIDToBeCleaned, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
-                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), retryNuageErrorCodes);
+                    nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), retryNuageErrorCodes, nuageVspAPIParams.getNuageVspCmsId());
             s_logger.debug("Successfully cleaned stale VSP entity " + entityToBeCleaned + " with ID " + entityIDToBeCleaned);
         } catch (Exception e) {
             s_logger.warn("Failed to clean " + entityToBeCleaned + " with ID " + entityIDToBeCleaned + " from NuageVsp. Please contact Nuage Vsp csproot to clean stale objects");
@@ -1721,7 +1743,8 @@ public class NuageVspApiUtil {
                 try {
                     String vPortJsonString = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                             networkTypeToBeAttached, networkIdToBeAttached, NuageVspEntity.VPORT, vmPortEntity, null, nuageVspAPIParams.getRestRelativePath(),
-                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser());
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), true, nuageVspAPIParams.isCmsUser(),
+                            nuageVspAPIParams.getNuageVspCmsId());
                     s_logger.debug("Created VPort for network " + networkTypeToBeAttached + " with ID " + networkIdToBeAttached + " in Nuage. Response from VSP is "
                             + vPortJsonString);
                     vPortId = getEntityId(vPortJsonString, NuageVspEntity.VPORT);
@@ -1845,7 +1868,7 @@ public class NuageVspApiUtil {
                 //create Egress/Ingress ACL Entry
                 aclEntryJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
                         aclTemplateType, aclTemplateId, aclTemplateEntryType, aclEntryEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                        nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug("Created " + aclTemplateEntryType + " ACL Entry " + (rule != null ? (" for rule " + rule + " with CIDR " + sourceCidr) : "")
                         + " in VSP. Response from VSP is " + aclEntryJson);
 
@@ -2035,6 +2058,56 @@ public class NuageVspApiUtil {
     private static boolean isSameACL(String aclEntryEnternalUuid, InternalIdentity rule) {
         return (rule instanceof FirewallRule && ((FirewallRule)rule).getUuid().equals(aclEntryEnternalUuid))
                 || (rule instanceof NetworkACLItem && ((NetworkACLItem)rule).getUuid().equals(aclEntryEnternalUuid));
+    }
+
+    public static String generateCmsIdForNuageVsp(String cmsName, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        try {
+            // Get Cloud Management System ID
+            Map<String, Object> entity = new HashMap<String, Object>();
+            entity.put(NuageVspAttribute.CLOUD_MGMT_SYSTEM_NAME.getAttributeName(), cmsName);
+
+            String cmsJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                    NuageVspEntity.CLOUD_MGMT_SYSTEMS, entity, nuageVspAPIParams.getRestRelativePath(),
+                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(),
+                    nuageVspAPIParams.getNuageVspCmsId());
+            s_logger.debug("Retrieved CMS ID for VSP . Response from VSP is " + cmsJson);
+            return getEntityId(cmsJson, NuageVspEntity.CLOUD_MGMT_SYSTEMS);
+        } catch (Exception exception) {
+            String errorMessage = "Failed to retrieve CMS ID VSP. Response from VSP REST API is  " + exception.getMessage();
+            s_logger.error(errorMessage, exception);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
+    }
+
+    public static boolean removeCmsIdForNuageVsp(String cmsId, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        try {
+            NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                    NuageVspEntity.CLOUD_MGMT_SYSTEMS, cmsId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
+                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
+            s_logger.debug("Deleted CMS ID for VSP.");
+            return true;
+        } catch (Exception exception) {
+            String errorMessage = "Failed to delete CMS ID VSP. Response from VSP REST API is  " + exception.getMessage();
+            s_logger.error(errorMessage, exception);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
+    }
+
+    public static boolean isKnownCmsIdForNuageVsp(String cmsId, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        try {
+            NuageVspApi.executeRestApi(RequestType.GET, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                    NuageVspEntity.CLOUD_MGMT_SYSTEMS, cmsId, null, null, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
+                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
+            return true;
+        } catch (Exception exception) {
+            if (exception instanceof NuageVspException && ((NuageVspException) exception).getHttpErrorCode() == 404) {
+                return false;
+            }
+
+            String errorMessage = "Failed to retrieve CMS ID VSP. Response from VSP REST API is  " + exception.getMessage();
+            s_logger.error(errorMessage, exception);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
     }
 
 }
