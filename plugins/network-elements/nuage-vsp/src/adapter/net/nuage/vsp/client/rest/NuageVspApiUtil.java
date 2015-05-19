@@ -475,7 +475,10 @@ public class NuageVspApiUtil {
 
         if (StringUtils.isNotBlank(preConfiguredDomainTemplateName) &&
                 (StringUtils.isBlank(vsdDomainTemplateId) || !StringUtils.equals(vsdDomainTemplateName, preConfiguredDomainTemplateName))) {
-            errorMessage.append(debugMessage).append(" Preconfigured DomainTemplate '").append(preConfiguredDomainTemplateName).append("' could not be found");
+            errorMessage.append(debugMessage).append(" Preconfigured DomainTemplate '").append(preConfiguredDomainTemplateName).append("' could not be found.");
+            if (isVpc) {
+                errorMessage.append(" Please remove the VPC Tier before trying again.");
+            }
             s_logger.error(errorMessage);
             throw new NuageVspAPIUtilException(errorMessage.toString());
         }
@@ -516,9 +519,8 @@ public class NuageVspApiUtil {
                     s_logger.debug(debugMessage + " Created DomainTemplate for network " + networkName + " in VSP . Response from VSP is " + domainTemplateJson);
                     domainTemplateId = getEntityId(domainTemplateJson, NuageVspEntity.DOMAIN_TEMPLATE);
                 } catch (Exception exception) {
-                    String error = debugMessage + " Failed to create DomainTemplate for network " + networkName + ".  Json response from VSP REST API is  " + exception.getMessage();
-                    s_logger.error(error, exception);
-                    throw new NuageVspAPIUtilException(error);
+                    errorMessage.append(debugMessage).append(" Failed to create DomainTemplate for network ").append(networkName).append(". Json response from VSP REST API is ")
+                            .append(exception.getMessage());
                 }
 
                 createDomainZoneAndSubnet(reuseDomain, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
@@ -527,6 +529,9 @@ public class NuageVspApiUtil {
         }
 
         if (errorMessage.length() != 0) {
+            if (isVpc) {
+                errorMessage.append(" Please remove the VPC Tier before trying again.");
+            }
             s_logger.error(errorMessage);
             cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateId, nuageVspAPIParams);
             throw new NuageVspAPIUtilException(errorMessage.toString());
