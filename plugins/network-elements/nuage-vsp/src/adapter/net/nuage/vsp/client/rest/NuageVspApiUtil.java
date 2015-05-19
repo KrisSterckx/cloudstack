@@ -470,23 +470,25 @@ public class NuageVspApiUtil {
         StringBuffer errorMessage = new StringBuffer();
         String debugMessage = "This is a " + (reuseDomain ? (isVpc ? "VPC" : "Shared") : "Isolated") + " Network.";
 
-        String preConfiguredDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
+        String vsdDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
                 "name", preConfiguredDomainTemplateName, nuageVspAPIParams);
-        String preConfiguredDomainTemplateId = NuageVspApiUtil.getEntityId(preConfiguredDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
+        String vsdDomainTemplateId = NuageVspApiUtil.getEntityId(vsdDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
+        String vsdDomainTemplateName = NuageVspApiUtil.getFieldValue(vsdDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE, NuageVspAttribute.DOMAIN_TEMPLATE_NAME.getAttributeName());
 
-        if (StringUtils.isNotBlank(preConfiguredDomainTemplateName) && StringUtils.isBlank(preConfiguredDomainTemplateId)) {
+        if (StringUtils.isNotBlank(preConfiguredDomainTemplateName) &&
+                (StringUtils.isBlank(vsdDomainTemplateId) || !StringUtils.equals(vsdDomainTemplateName, preConfiguredDomainTemplateName))) {
             errorMessage.append(debugMessage).append(" Preconfigured DomainTemplate '").append(preConfiguredDomainTemplateName).append("' could not be found");
             s_logger.error(errorMessage);
             throw new NuageVspAPIUtilException(errorMessage.toString());
         }
 
-        if (StringUtils.isNotBlank(preConfiguredDomainTemplateId)) {
+        if (StringUtils.isNotBlank(vsdDomainTemplateId)) {
             domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
             if (StringUtils.isNotBlank(domainId)) {
                 validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid, netmask, address, gateway, dnsServers,
                         ipAddressRanges, nuageVspAPIParams);
             } else {
-                createDomainZoneAndSubnet(reuseDomain, preConfiguredDomainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                createDomainZoneAndSubnet(reuseDomain, vsdDomainTemplateId, networkName, uuid, name, gatewaySystemIds,
                         defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
             }
         } else {
