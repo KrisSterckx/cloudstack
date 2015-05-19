@@ -496,8 +496,6 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         // Whenever a Nuage VSP Host comes up, check if all CS domains are present and check if the CMS ID is valid
         if (transition.getToState() == Status.Up && vo instanceof HostVO) {
             HostVO host = (HostVO) vo;
-            validateDomainsOnVsp(host);
-
             List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
             if (!CollectionUtils.isEmpty(nuageVspDevices)) {
                 for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
@@ -513,6 +511,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                     }
                 }
             }
+
+            validateDomainsOnVsp(host);
         }
         return true;
     }
