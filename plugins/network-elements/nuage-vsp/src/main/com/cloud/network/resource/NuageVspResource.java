@@ -6,6 +6,7 @@ import com.cloud.agent.api.Command;
 import com.cloud.agent.api.MaintainAnswer;
 import com.cloud.agent.api.MaintainCommand;
 import com.cloud.agent.api.PingCommand;
+import com.cloud.agent.api.PingNuageVspCommand;
 import com.cloud.agent.api.ReadyAnswer;
 import com.cloud.agent.api.ReadyCommand;
 import com.cloud.agent.api.StartupCommand;
@@ -46,6 +47,7 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
     private String _relativePath;
     private int _numRetries;
     private int _retryInterval;
+    private boolean _shouldAudit = true;
 
     @Override
     public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
@@ -177,15 +179,19 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
     public PingCommand getCurrentStatus(long id) {
         if ((_relativePath == null) || (_relativePath.isEmpty()) || (_cmsUserInfo == null) || (_cmsUserInfo.length == 0)) {
             s_logger.error("Failed to ping to Nuage VSD");
+            _shouldAudit = true;
             return null;
         }
         try {
             NuageVspApi.login(_relativePath, _cmsUserInfo, true);
         } catch (Exception e) {
             s_logger.error("Failed to ping to Nuage VSD on " + _name + " as user " + _cmsUserInfo[1] + " Exception " + e.getMessage());
+            _shouldAudit = true;
             return null;
         }
-        return new PingCommand(Host.Type.L2Networking, id);
+        PingNuageVspCommand pingNuageVspCommand = new PingNuageVspCommand(Host.Type.L2Networking, id, _shouldAudit);
+        _shouldAudit = false;
+        return pingNuageVspCommand;
     }
 
     @Override

@@ -34,11 +34,19 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.agent.Listener;
+import com.cloud.agent.api.AgentControlAnswer;
+import com.cloud.agent.api.AgentControlCommand;
+import com.cloud.agent.api.Answer;
+import com.cloud.agent.api.Command;
+import com.cloud.agent.api.PingNuageVspCommand;
+import com.cloud.agent.api.StartupCommand;
 import com.cloud.agent.api.SyncNuageVspCmsIdAnswer;
 import com.cloud.agent.api.SyncNuageVspCmsIdCommand;
 import com.cloud.domain.Domain;
 import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
+import com.cloud.exception.ConnectionException;
 import com.cloud.host.Status;
 import com.cloud.user.DomainManager;
 import com.cloud.util.NuageVspUtil;
@@ -495,28 +503,35 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     public boolean postStateTransitionEvent(StateMachine2.Transition<Status, Status.Event> transition, Host vo, boolean status, Object opaque) {
         // Whenever a Nuage VSP Host comes up, check if all CS domains are present and check if the CMS ID is valid
         if (transition.getToState() == Status.Up && vo instanceof HostVO) {
-            HostVO host = (HostVO) vo;
-            _hostDao.loadDetails(host);
-
-            List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
-            if (!CollectionUtils.isEmpty(nuageVspDevices)) {
-                for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
-                    ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
-                    String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
-                    SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, host.getDetails(), SyncType.AUDIT);
-                    SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
-
-                    if (answer != null && !answer.getSuccess()) {
-                        s_logger.fatal("Nuage VSP Device with ID " + nuageVspDevice.getId() + " is configured with an unknown CMS ID!");
-                    } else if (answer != null && answer.getSyncType() == SyncType.REGISTER) {
-                        registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
-                    }
-                }
-            }
-
-            validateDomainsOnVsp(host);
+            auditHost((HostVO) vo);
         }
         return true;
+    }
+
+    private void auditHost(HostVO host) {
+        _hostDao.loadDetails(host);
+
+        boolean validateDomains = true;
+        List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
+        if (!CollectionUtils.isEmpty(nuageVspDevices)) {
+            for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
+                String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
+                SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, host.getDetails(), SyncType.AUDIT);
+                SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+
+                if (answer != null && !answer.getSuccess()) {
+                    s_logger.fatal("Nuage VSP Device with ID " + nuageVspDevice.getId() + " is configured with an unknown CMS ID!");
+                    validateDomains = false;
+                } else if (answer != null && answer.getSyncType() == SyncType.REGISTER) {
+                    registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
+                }
+            }
+        }
+
+        if (validateDomains) {
+            validateDomainsOnVsp(host);
+        }
     }
 
     private void validateDomainsOnVsp(HostVO host) {
@@ -542,6 +557,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Override
     public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
         initMessageBusListeners();
+        initNuageVspResourceListeners();
         initNuageVspVpcOffering();
         initNuageScheduledTasks();
         Status.getStateMachine().registerListener(this);
@@ -593,6 +609,61 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                 }
             }
         });
+    }
+
+    @DB
+    private void initNuageVspResourceListeners() {
+        _agentMgr.registerForHostEvents(new Listener() {
+            @Override
+            public boolean processAnswers(long agentId, long seq, Answer[] answers) {
+                return true;
+            }
+
+            @Override
+            public boolean processCommands(long agentId, long seq, Command[] commands) {
+                if (commands != null && commands.length == 1) {
+                    Command command = commands[0];
+                    if (command instanceof PingNuageVspCommand) {
+                        PingNuageVspCommand pingNuageVspCommand = (PingNuageVspCommand) command;
+                        if (pingNuageVspCommand.shouldAudit()) {
+                            Host host = _hostDao.findById(pingNuageVspCommand.getHostId());
+                            auditHost((HostVO) host);
+                        }
+                    }
+                }
+                return true;
+            }
+
+            @Override
+            public AgentControlAnswer processControlCommand(long agentId, AgentControlCommand cmd) {
+                return null;
+            }
+
+            @Override
+            public void processConnect(Host host, StartupCommand cmd, boolean forRebalance) throws ConnectionException {
+
+            }
+
+            @Override
+            public boolean processDisconnect(long agentId, Status state) {
+                return true;
+            }
+
+            @Override
+            public boolean isRecurring() {
+                return false;
+            }
+
+            @Override
+            public int getTimeout() {
+                return 0;
+            }
+
+            @Override
+            public boolean processTimeout(long agentId, long seq) {
+                return true;
+            }
+        }, false, true, false);
     }
 
     @DB
