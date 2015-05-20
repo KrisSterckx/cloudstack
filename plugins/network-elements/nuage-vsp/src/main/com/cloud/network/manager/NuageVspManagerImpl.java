@@ -439,9 +439,15 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
         SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfig.getValue(), host.getDetails(), SyncType.UNREGISTER);
         SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
-
         if (answer != null && answer.getSuccess()) {
-            _configDao.update("nuagevsp.cms.id", cmsIdConfig.getValue().replace(answer.getRegisteredNuageVspDevice(), ""));
+            String currentValue = cmsIdConfig.getValue();
+            String newValue = currentValue.replace(answer.getRegisteredNuageVspDevice(), "");
+            if (newValue.startsWith(";")) {
+                newValue = newValue.substring(1);
+            }
+            _configDao.update("nuagevsp.cms.id", newValue);
+        } else {
+            return false;
         }
 
         HostVO nuageHost = _hostDao.findById(nuageVspDevice.getHostId());
@@ -485,11 +491,17 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     private void registerNewNuageVspDevice(ConfigurationVO currentConfig, String registeredNuageVspDevice) {
         if (currentConfig == null) {
             ConfigKey<String> configKey = new ConfigKey<String>("Advanced", String.class, "nuagevsp.cms.id", registeredNuageVspDevice,
-                    "The CMS ID allocated by Nuage Vsp Devices - Do not edit", false);
+                    "<ACS Nuage VSP Device ID>:<Allocated VSD CMS ID> - Do not edit", false);
             ConfigurationVO configuration = new ConfigurationVO("management-server", configKey);
             _configDao.persist(configuration);
         } else {
-            String newValue = currentConfig.getValue() != null ? currentConfig.getValue() + registeredNuageVspDevice : registeredNuageVspDevice;
+            String newValue;
+            String currentValue = currentConfig.getValue();
+            if (StringUtils.isNotBlank(currentValue)) {
+                newValue = currentValue + ";" + registeredNuageVspDevice;
+            } else {
+                newValue = registeredNuageVspDevice;
+            }
             _configDao.update("nuagevsp.cms.id", newValue);
         }
     }

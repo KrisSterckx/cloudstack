@@ -324,6 +324,6 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
     }
 
     private String getRegisteredNuageVspDevice(long nuageVspDeviceId, String cmsId) {
-        return nuageVspDeviceId + ":" + cmsId + ";";
+        return nuageVspDeviceId + ":" + cmsId;
     }
 }
