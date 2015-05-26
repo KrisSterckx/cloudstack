@@ -1292,11 +1292,11 @@ public class LibvirtVMDef {
         @Override
         public String toString() {
             StringBuilder fsBuilder = new StringBuilder();
-            fsBuilder.append("<nuage-extension>\n");
             for (Map.Entry<String, String> address : addresses.entrySet()) {
+                fsBuilder.append("<nuage-extension>\n");
                 fsBuilder.append("  <interface mac='" + address.getKey() + "' vsp-vr-ip='" + address.getValue() + "'></interface>\n");
+                fsBuilder.append("</nuage-extension>\n");
             }
-            fsBuilder.append("</nuage-extension>\n");
             return fsBuilder.toString();
         }
     }
