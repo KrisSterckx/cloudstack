@@ -360,11 +360,18 @@ public class NuageVspApi {
      */
     private static String initResponseJson(String json, String nuageVspCmsId) throws Exception {
         if (StringUtils.isNotBlank(json) && StringUtils.isNotBlank(nuageVspCmsId)) {
-            List<Map<String, Object>> entities = mapper.readValue(json, List.class);
-            for (Map<String, Object> entity : entities) {
-                processJsonEntity(entity, nuageVspCmsId, false, true);
+            Object response = mapper.readValue(json, Object.class);
+            if (response instanceof Map) {
+                processJsonEntity((Map<String, Object>) response, nuageVspCmsId, false, true);
+            } else if (response instanceof List) {
+                List<Map> entities = (List<Map>) response;
+                for (Map<String, Object> entity : entities) {
+                    processJsonEntity(entity, nuageVspCmsId, false, true);
+                }
+            } else {
+                return json;
             }
-            return mapper.writeValueAsString(entities);
+            return mapper.writeValueAsString(response);
         }
         return json;
     }
