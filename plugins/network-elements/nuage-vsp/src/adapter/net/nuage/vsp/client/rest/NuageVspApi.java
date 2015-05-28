@@ -492,16 +492,18 @@ public class NuageVspApi {
      * @throws Exception
      */
     private static String parseHttpResponse(HttpResponse httpResponse, String entityType, RequestType type) throws Exception {
-        StringBuffer jsonResult = new StringBuffer();
-
-        getJsonFromResponse(httpResponse, jsonResult);
-
+        String httpResponseContent = getHttpResponseContent(httpResponse);
+        String errorMessage = "NUAGE HTTP REQUEST FAILED: HTTP Response code: " + httpResponse.getStatusLine().getStatusCode() + " : Response : " + httpResponseContent;
         if (s_logger.isTraceEnabled()) {
-            s_logger.trace("HTTP Request result : HTTP status : " + httpResponse.getStatusLine().getStatusCode() + " : JSON string" + jsonResult);
+            s_logger.trace("HTTP Request result : HTTP status : " + httpResponse.getStatusLine().getStatusCode() + " : Response " + httpResponseContent);
         }
 
         if (httpResponse.getStatusLine().getStatusCode() >= 402 && httpResponse.getStatusLine().getStatusCode() <= 599) {
-            Map<String, Object> error = parseJsonError(jsonResult.toString());
+            if (!isJson(httpResponseContent)) {
+                throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, entityType, type);
+            }
+
+            Map<String, Object> error = parseJsonError(httpResponseContent);
             if (httpResponse.getStatusLine().getStatusCode() == 404) {
                 error.put(s_internalErrorCode, s_resourceNotFoundErrorCode);
             }
@@ -510,7 +512,6 @@ public class NuageVspApi {
                 Integer nuageErrorCode = (Integer)error.get(s_internalErrorCode);
                 String nuageErrorDetails = (String)error.get(s_internalErrorDetails);
                 //TODO: This is a temporary hack to avoid printing internal error code 2039
-                String errorMessage = "NUAGE HTTP REQUEST FAILED: HTTP Response code: " + httpResponse.getStatusLine().getStatusCode() + " : " + jsonResult;
                 if (nuageErrorCode == s_duplicateAclPriority) {
                     s_logger.warn(errorMessage);
                 } else if (!(nuageErrorCode == s_noChangeInEntityErrorCode)) {
@@ -519,24 +520,35 @@ public class NuageVspApi {
                 throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, nuageErrorCode, nuageErrorDetails, entityType, type);
             }
         } else if (httpResponse.getStatusLine().getStatusCode() == 401) {
-            String errorMessage = "NUAGE HTTP REQUEST FAILED: HTTP Response code: " + httpResponse.getStatusLine().getStatusCode() + " : " + jsonResult;
             s_logger.trace(errorMessage);
             throw new AuthenticationException(errorMessage);
         }
-        return jsonResult.toString();
+        return httpResponseContent;
     }
 
-    private static void getJsonFromResponse(HttpResponse httpResponse, StringBuffer jsonResult) throws IOException {
+    private static boolean isJson(String input) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.readTree(input);
+            return true;
+        } catch (IOException ioe) {
+            return false;
+        }
+    }
+
+    private static String getHttpResponseContent(HttpResponse httpResponse) throws IOException {
+        StringBuilder httpResponseContent = new StringBuilder();
         HttpEntity entity = httpResponse.getEntity();
         if (entity != null) {
             InputStream inputStream = entity.getContent();
             BufferedReader rd = new BufferedReader(new InputStreamReader(inputStream));
             String json = null;
             while ((json = rd.readLine()) != null) {
-                jsonResult.append(json);
+                httpResponseContent.append(json);
             }
             inputStream.close();
         }
+        return httpResponseContent.toString();
     }
 
     public static Map<String, Object> parseJsonError(String jsonResult) throws UnSupportedNuageEntityException, JsonParseException, IOException {
