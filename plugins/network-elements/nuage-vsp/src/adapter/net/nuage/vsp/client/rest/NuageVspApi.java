@@ -495,6 +495,11 @@ public class NuageVspApi {
         StringBuffer jsonResult = new StringBuffer();
 
         getJsonFromResponse(httpResponse, jsonResult);
+
+        if (s_logger.isTraceEnabled()) {
+            s_logger.trace("HTTP Request result : HTTP status : " + httpResponse.getStatusLine().getStatusCode() + " : JSON string" + jsonResult);
+        }
+
         if (httpResponse.getStatusLine().getStatusCode() >= 402 && httpResponse.getStatusLine().getStatusCode() <= 599) {
             Map<String, Object> error = parseJsonError(jsonResult.toString());
             if (httpResponse.getStatusLine().getStatusCode() == 404) {
@@ -517,10 +522,6 @@ public class NuageVspApi {
             String errorMessage = "NUAGE HTTP REQUEST FAILED: HTTP Response code: " + httpResponse.getStatusLine().getStatusCode() + " : " + jsonResult;
             s_logger.trace(errorMessage);
             throw new AuthenticationException(errorMessage);
-        }
-
-        if (httpResponse.getStatusLine().getStatusCode() >= 200 || httpResponse.getStatusLine().getStatusCode() <= 299) {
-            s_logger.trace("NUAGE HTTP REQUEST RESULT: HTTP status : " + httpResponse.getStatusLine().getStatusCode() + " : JSON string" + jsonResult + "\n\n");
         }
         return jsonResult.toString();
     }
