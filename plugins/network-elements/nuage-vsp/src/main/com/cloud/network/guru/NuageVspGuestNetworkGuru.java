@@ -366,8 +366,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 if (vmInterfacesDetails != null) {
                     vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, true);
                 } else {
-                    s_logger.info("Interface with MAC " + allocatedNic.getMacAddress() + " already exists in Nuage VSP. So, it is not added to the VM " + vm.getInstanceName()
-                            + " in network" + network.getName());
+                    s_logger.trace("Interface with MAC " + allocatedNic.getMacAddress() + " is already configured for VM " + vm.getInstanceName() +
+                            " in network " + network.getName() + ", not going to reconfigure");
                 }
             }
             IPAddressVO staticNatIp = _ipAddressDao.findByVmIdAndNetworkId(network.getId(), vm.getId());
