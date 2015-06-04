@@ -298,104 +298,123 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
     @DB
     public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic, boolean forceIpAddress) throws InsufficientVirtualNetworkCapacityException {
-        //NicProfile does not contain the NIC UUID. We need this information to set it in the VMInterface and VPort
-        //that we create in VSP
-        DataCenter dc = _dcDao.findById(network.getDataCenterId());
-        Account networksAccount = _accountDao.findById(network.getAccountId());
-        DomainVO networksDomain = _domainDao.findById(network.getDomainId());
-        Object[] attachedNetworkDetails;
-        boolean domainRouter = false;
+        boolean lockedNetwork = false;
+        if (!vm.getVirtualMachine().getType().isUsedBySystem()) {
+            // In case of a user VM, we lock the network for concurrency
+            long networkId = network.getId();
+            lockedNetwork = true;
+            network = _networkDao.acquireInLockTable(network.getId(), 1200);
+            if (network == null) {
+                throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+            }
+            s_logger.debug("Locked network " + networkId + " for creating user VM " + vm.getInstanceName());
+        }
+
         try {
-            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
-            long networkOwnedBy = network.getAccountId();
-            //get the Account details and find the type
-            AccountVO networkAccountDetails = _accountDao.findById(networkOwnedBy);
-            if (networkAccountDetails.getType() == Account.ACCOUNT_TYPE_PROJECT) {
-                throw new InsufficientVirtualNetworkCapacityException("CS project support is not yet implemented in NuageVsp", DataCenter.class, dc.getId());
-            } else {
-                //this is not owned by project probably this is users network, hopefully the account ID matches user Id
-                //Since this is a new network now create a L2 Domain Template and instantiate it and add the subnet
-                //or create a L3 DomainTemplate and instantiate it
-                //Get the Nuage VSP configuration details
-                attachedNetworkDetails = getAttachedNetworkDetails(network, networksDomain, nuageVspAPIParamsAsCmsUser);
-            }
-            if (s_logger.isDebugEnabled()) {
-                s_logger.debug("VSP Network to create VM " + vm.getInstanceName() + " or attach an interface " + allocatedNic.getIp4Address() + " is "
-                        + attachedNetworkDetails[0] + "/" + attachedNetworkDetails[1] + " for ACS network " + network.getName());
-            }
-
-            NicVO nic = _nicDao.findById(allocatedNic.getId());
-            List<Map<String, String>> vmInterfaceList = new ArrayList<Map<String, String>>();
-            Map<String, String> vmInterfaces = new HashMap<String, String>();
-            vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_NAME.getAttributeName(), nic.getUuid());
-            vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_MAC.getAttributeName(), allocatedNic.getMacAddress());
-            vmInterfaces.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), nic.getUuid());
-            //If VM is a Virtual Router then set the static that was reserved earlier
-            if (vm.getType().equals(VirtualMachine.Type.DomainRouter)) {
-                domainRouter = true;
-                vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), network.getBroadcastUri().getPath().substring(1));
-            } else if (forceIpAddress) {
-                vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), nic.getIp4Address());
-            }
-
-            vmInterfaceList.add(vmInterfaces);
-
-            String vmJsonString = NuageVspApiUtil.getVMDetails(network.getUuid(), vm.getUuid(), nuageVspAPIParamsAsCmsUser);
-            String vmInterfacesDetails;
-            String[] vportAndDomainId = null;
-
-            //now execute all the APIs a the network's account user. So reset the nuage API parameters
-            NuageVspAPIParams nuageVspAPIParamsAsNtwkAccUser = NuageVspApiUtil.getNuageVspAPIParameters(networksDomain.getUuid(), networksAccount.getUuid(), false,
-                    getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
-            if (vmJsonString == null || StringUtils.isBlank(vmJsonString)) {
-                //VM does not exists in VSP. So, create the VM in VSP
-                vmInterfacesDetails = NuageVspApiUtil.createVMInVSP(vm.getInstanceName(), vm.getUuid(), vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser,
-                        nuageVspAPIParamsAsNtwkAccUser);
-                if (vmInterfacesDetails != null) {
-                    vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, true);
+            //NicProfile does not contain the NIC UUID. We need this information to set it in the VMInterface and VPort
+            //that we create in VSP
+            DataCenter dc = _dcDao.findById(network.getDataCenterId());
+            Account networksAccount = _accountDao.findById(network.getAccountId());
+            DomainVO networksDomain = _domainDao.findById(network.getDomainId());
+            Object[] attachedNetworkDetails;
+            boolean domainRouter = false;
+            try {
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+                long networkOwnedBy = network.getAccountId();
+                //get the Account details and find the type                                   *
+                AccountVO networkAccountDetails = _accountDao.findById(networkOwnedBy);
+                if (networkAccountDetails.getType() == Account.ACCOUNT_TYPE_PROJECT) {
+                    throw new InsufficientVirtualNetworkCapacityException("CS project support is not yet implemented in NuageVsp", DataCenter.class, dc.getId());
                 } else {
-                    String error = "Failed to get IP for the VM " + vm.getInstanceName() + " from VSP address for network " + network.getName();
-                    s_logger.error(error);
-                    throw new InsufficientVirtualNetworkCapacityException(error, Network.class, network.getId());
+                    //this is not owned by project probably this is users network, hopefully the account ID matches user Id
+                    //Since this is a new network now create a L2 Domain Template and instantiate it and add the subnet
+                    //or create a L3 DomainTemplate and instantiate it
+                    //Get the Nuage VSP configuration details
+                    attachedNetworkDetails = getAttachedNetworkDetails(network, networksDomain, nuageVspAPIParamsAsCmsUser);
                 }
-            } else {
-                //VM already exists, so just add the VM interface to the VM
-                vmInterfacesDetails = NuageVspApiUtil.addVMInterfaceToVM(network.getUuid(), vm.getInstanceName(), vm.getUuid(), vmInterfaceList, allocatedNic.getMacAddress(),
-                        vmJsonString, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser, nuageVspAPIParamsAsNtwkAccUser);
-                if (vmInterfacesDetails != null) {
-                    vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, true);
-                } else {
-                    s_logger.trace("Interface with MAC " + allocatedNic.getMacAddress() + " is already configured for VM " + vm.getInstanceName() +
-                            " in network " + network.getName() + ", not going to reconfigure");
+                if (s_logger.isDebugEnabled()) {
+                    s_logger.debug("VSP Network to create VM " + vm.getInstanceName() + " or attach an interface " + allocatedNic.getIp4Address() + " is "
+                            + attachedNetworkDetails[0] + "/" + attachedNetworkDetails[1] + " for ACS network " + network.getName());
                 }
-            }
-            IPAddressVO staticNatIp = _ipAddressDao.findByVmIdAndNetworkId(network.getId(), vm.getId());
-            if (!domainRouter && staticNatIp != null && staticNatIp.getState().equals(IpAddress.State.Allocated) && staticNatIp.isOneToOneNat()) {
-                s_logger.debug("Found a StaticNat(in ACS DB) " + staticNatIp.getAddress() + " in Allocated state and it is associated to VM " + vm.getInstanceName()
-                        + ". Trying to check if this StaticNAT is in sync with VSP.");
-                if (vmInterfacesDetails == null && StringUtils.isNotBlank(vmJsonString)) {
-                    //Case were this is a VM restart
-                    List<Map<String, Object>> vmDetails = NuageVspApiUtil.parseJson(vmJsonString, NuageVspEntity.VM);
-                    vmInterfacesDetails = (String)vmDetails.iterator().next().get(NuageVspAttribute.VM_INTERFACES.getAttributeName());
-                    vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, false);
+
+                NicVO nic = _nicDao.findById(allocatedNic.getId());
+                List<Map<String, String>> vmInterfaceList = new ArrayList<Map<String, String>>();
+                Map<String, String> vmInterfaces = new HashMap<String, String>();
+                vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_NAME.getAttributeName(), nic.getUuid());
+                vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_MAC.getAttributeName(), allocatedNic.getMacAddress());
+                vmInterfaces.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), nic.getUuid());
+                //If VM is a Virtual Router then set the static that was reserved earlier
+                if (vm.getType().equals(VirtualMachine.Type.DomainRouter)) {
+                    domainRouter = true;
+                    vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), network.getBroadcastUri().getPath().substring(1));
+                } else if (forceIpAddress) {
+                    vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), nic.getIp4Address());
                 }
-                try {
-                    if (vportAndDomainId != null) {
-                        //Check if the VM in VSD has this StaticNAT and apply it if needed
-                        VlanVO staticNatVlan = _vlanDao.findById(staticNatIp.getVlanId());
-                        NuageVspApiUtil.applyStaticNatInVSP(network.getName(), network.getUuid(), nuageVspAPIParamsAsCmsUser, vportAndDomainId[1],
-                                attachedNetworkDetails[0].equals(NuageVspEntity.SUBNET) ? NuageVspEntity.DOMAIN : NuageVspEntity.L2DOMAIN, (String)attachedNetworkDetails[1],
-                                (String)attachedNetworkDetails[3], ((Boolean)attachedNetworkDetails[2]), staticNatIp.getAddress().addr(), staticNatIp.getUuid(),
-                                staticNatVlan.getVlanGateway(), staticNatVlan.getVlanNetmask(), staticNatVlan.getUuid(), allocatedNic.getIp4Address(), null, vportAndDomainId[0], null);
+
+                vmInterfaceList.add(vmInterfaces);
+
+                String vmJsonString = NuageVspApiUtil.getVMDetails(network.getUuid(), vm.getUuid(), nuageVspAPIParamsAsCmsUser);
+                String vmInterfacesDetails;
+                String[] vportAndDomainId = null;
+
+                //now execute all the APIs a the network's account user. So reset the nuage API parameters
+                NuageVspAPIParams nuageVspAPIParamsAsNtwkAccUser = NuageVspApiUtil.getNuageVspAPIParameters(networksDomain.getUuid(), networksAccount.getUuid(), false,
+                        getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+                if (vmJsonString == null || StringUtils.isBlank(vmJsonString)) {
+                    //VM does not exists in VSP. So, create the VM in VSP
+                    vmInterfacesDetails = NuageVspApiUtil.createVMInVSP(vm.getInstanceName(), vm.getUuid(), vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser,
+                            nuageVspAPIParamsAsNtwkAccUser);
+                    if (vmInterfacesDetails != null) {
+                        vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, true);
+                    } else {
+                        String error = "Failed to get IP for the VM " + vm.getInstanceName() + " from VSP address for network " + network.getName();
+                        s_logger.error(error);
+                        throw new InsufficientVirtualNetworkCapacityException(error, Network.class, network.getId());
                     }
-                } catch (Exception e) {
-                    s_logger.warn("Post processing of StaticNAT could not continue. Error happened while checking if StaticNat " + staticNatIp.getAddress()
-                            + " is in Sync with VSP. " + e.getMessage());
+                } else {
+                    //VM already exists, so just add the VM interface to the VM
+                    vmInterfacesDetails = NuageVspApiUtil.addVMInterfaceToVM(network.getUuid(), vm.getInstanceName(), vm.getUuid(), vmInterfaceList, allocatedNic.getMacAddress(),
+                            vmJsonString, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser, nuageVspAPIParamsAsNtwkAccUser);
+                    if (vmInterfacesDetails != null) {
+                        vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, true);
+                    } else {
+                        s_logger.trace("Interface with MAC " + allocatedNic.getMacAddress() + " is already configured for VM " + vm.getInstanceName() +
+                                " in network " + network.getName() + ", not going to reconfigure");
+                    }
                 }
+                IPAddressVO staticNatIp = _ipAddressDao.findByVmIdAndNetworkId(network.getId(), vm.getId());
+                if (!domainRouter && staticNatIp != null && staticNatIp.getState().equals(IpAddress.State.Allocated) && staticNatIp.isOneToOneNat()) {
+                    s_logger.debug("Found a StaticNat(in ACS DB) " + staticNatIp.getAddress() + " in Allocated state and it is associated to VM " + vm.getInstanceName()
+                            + ". Trying to check if this StaticNAT is in sync with VSP.");
+                    if (vmInterfacesDetails == null && StringUtils.isNotBlank(vmJsonString)) {
+                        //Case were this is a VM restart
+                        List<Map<String, Object>> vmDetails = NuageVspApiUtil.parseJson(vmJsonString, NuageVspEntity.VM);
+                        vmInterfacesDetails = (String)vmDetails.iterator().next().get(NuageVspAttribute.VM_INTERFACES.getAttributeName());
+                        vportAndDomainId = setIPGatewayMaskInfo(network, allocatedNic, vmInterfacesDetails, false);
+                    }
+                    try {
+                        if (vportAndDomainId != null) {
+                            //Check if the VM in VSD has this StaticNAT and apply it if needed
+                            VlanVO staticNatVlan = _vlanDao.findById(staticNatIp.getVlanId());
+                            NuageVspApiUtil.applyStaticNatInVSP(network.getName(), network.getUuid(), nuageVspAPIParamsAsCmsUser, vportAndDomainId[1],
+                                    attachedNetworkDetails[0].equals(NuageVspEntity.SUBNET) ? NuageVspEntity.DOMAIN : NuageVspEntity.L2DOMAIN, (String)attachedNetworkDetails[1],
+                                    (String)attachedNetworkDetails[3], ((Boolean)attachedNetworkDetails[2]), staticNatIp.getAddress().addr(), staticNatIp.getUuid(),
+                                    staticNatVlan.getVlanGateway(), staticNatVlan.getVlanNetmask(), staticNatVlan.getUuid(), allocatedNic.getIp4Address(), null, vportAndDomainId[0], null);
+                        }
+                    } catch (Exception e) {
+                        s_logger.warn("Post processing of StaticNAT could not continue. Error happened while checking if StaticNat " + staticNatIp.getAddress()
+                                + " is in Sync with VSP. " + e.getMessage());
+                    }
+                }
+            } catch (NuageVspAPIUtilException e) {
+                throw new InsufficientVirtualNetworkCapacityException(e.getMessage(), Network.class, network.getId());
             }
-        } catch (NuageVspAPIUtilException e) {
-            throw new InsufficientVirtualNetworkCapacityException(e.getMessage(), Network.class, network.getId());
+        } finally {
+            if (network != null && lockedNetwork) {
+                _networkDao.releaseFromLockTable(network.getId());
+                s_logger.debug("Unlocked network " + network.getId() + " for creating user VM " + vm.getInstanceName());
+            }
         }
     }
 
