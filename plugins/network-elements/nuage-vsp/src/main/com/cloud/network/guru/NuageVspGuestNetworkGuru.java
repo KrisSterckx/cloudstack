@@ -298,16 +298,9 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
     @DB
     public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic, boolean forceIpAddress) throws InsufficientVirtualNetworkCapacityException {
-        boolean lockedNetwork = false;
-        if (!vm.getVirtualMachine().getType().isUsedBySystem()) {
-            // In case of a user VM, we lock the network for concurrency
-            long networkId = network.getId();
-            lockedNetwork = true;
-            network = _networkDao.acquireInLockTable(network.getId(), 1200);
-            if (network == null) {
-                throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
-            }
-            s_logger.debug("Locked network " + networkId + " for creating user VM " + vm.getInstanceName());
+        boolean lockedNetwork = lockNetworkForUserVm(network, vm);
+        if (lockedNetwork) {
+            s_logger.debug("Locked network " + network.getId() + " for creation of user VM " + vm.getInstanceName());
         }
 
         try {
@@ -413,7 +406,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         } finally {
             if (network != null && lockedNetwork) {
                 _networkDao.releaseFromLockTable(network.getId());
-                s_logger.debug("Unlocked network " + network.getId() + " for creating user VM " + vm.getInstanceName());
+                s_logger.debug("Unlocked network " + network.getId() + " for creation of user VM " + vm.getInstanceName());
             }
         }
     }
@@ -421,11 +414,11 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     @Override
     @DB
     public void deallocate(Network network, NicProfile nic, VirtualMachineProfile vm) {
-        long networkId = network.getId();
-        network = _networkDao.acquireInLockTable(networkId, 1200);
-        if (network == null) {
-            throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+        boolean lockedNetwork = lockNetworkForUserVm(network, vm);
+        if (lockedNetwork) {
+            s_logger.debug("Locked network " + network.getId() + " for deallocation of user VM " + vm.getInstanceName());
         }
+
         try {
             try {
                 if (s_logger.isDebugEnabled()) {
@@ -495,12 +488,25 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                         + " is getting destroyed. REST API failed to update the VM state in NuageVsp", e);
             }
         } finally {
-            if (network != null) {
+            if (network != null && lockedNetwork) {
                 _networkDao.releaseFromLockTable(network.getId());
+                s_logger.debug("Unlocked network " + network.getId() + " for deallocation of user VM " + vm.getInstanceName());
             }
         }
 
         super.deallocate(network, nic, vm);
+    }
+
+    private boolean lockNetworkForUserVm(Network network, VirtualMachineProfile vm) {
+        if (!vm.getVirtualMachine().getType().isUsedBySystem()) {
+            long networkId = network.getId();
+            network = _networkDao.acquireInLockTable(network.getId(), 1200);
+            if (network == null) {
+                throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+            }
+            return true;
+        }
+        return false;
     }
 
     private void cleanVMVPorts(Network network, NicProfile nic, VirtualMachineProfile vm, NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws NuageVspAPIUtilException {
