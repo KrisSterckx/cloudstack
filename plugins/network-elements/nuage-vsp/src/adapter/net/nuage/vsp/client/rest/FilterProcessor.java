@@ -41,8 +41,8 @@ public class FilterProcessor {
     }
 
     private static String replaceOldExternalId(String input, String oldExternalId, String nuageVspCmsId) {
-        if (StringUtils.isNotBlank(oldExternalId) && !oldExternalId.startsWith(nuageVspCmsId)) {
-            String newExternalId = nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER + oldExternalId;
+        if (StringUtils.isNotBlank(oldExternalId) && !oldExternalId.endsWith(nuageVspCmsId)) {
+            String newExternalId = oldExternalId + NuageVspConstants.EXTERNAL_ID_DELIMITER + nuageVspCmsId;
             return input.replaceAll(oldExternalId, newExternalId);
         }
         return input;

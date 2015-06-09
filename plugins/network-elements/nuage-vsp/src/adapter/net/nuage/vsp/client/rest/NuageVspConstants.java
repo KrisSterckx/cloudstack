@@ -78,5 +78,5 @@ public class NuageVspConstants {
 
     public static final int SYNC_UP_INTERVAL_IN_MINUTES = 60 * 8;
 
-    public static final String EXTERNAL_ID_DELIMITER = ":";
+    public static final String EXTERNAL_ID_DELIMITER = "@";
 }
