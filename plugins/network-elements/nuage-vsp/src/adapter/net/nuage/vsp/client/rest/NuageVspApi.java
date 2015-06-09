@@ -377,22 +377,17 @@ public class NuageVspApi {
     }
 
     private static void processJsonEntity(Map<String, Object> jsonEntity, String nuageVspCmsId, boolean build, boolean revert) {
+        String externalIdSuffix = NuageVspConstants.EXTERNAL_ID_DELIMITER + nuageVspCmsId;
         for (String field : jsonEntity.keySet()) {
             if (ArrayUtils.indexOf(FilterProcessor.EXTERNAL_ID_FIELDS, field) != -1) {
                 String value = (String) jsonEntity.get(field);
                 if (StringUtils.isNotBlank(value)) {
-                    if (revert && value.startsWith(nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER)) {
+                    boolean endsWithSuffix = value.endsWith(externalIdSuffix);
+                    if (revert && endsWithSuffix) {
                         String[] externalIdSplitted = value.split(NuageVspConstants.EXTERNAL_ID_DELIMITER);
-                        String csExternalId = "";
-                        for (int i = 1; i < externalIdSplitted.length; i++) {
-                            csExternalId += externalIdSplitted[i];
-                            if (i < externalIdSplitted.length - 1) {
-                                csExternalId += NuageVspConstants.EXTERNAL_ID_DELIMITER;
-                            }
-                        }
-                        jsonEntity.put(field, csExternalId);
-                    } else if (build && !value.startsWith(nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER)) {
-                        String vsdExternalId = nuageVspCmsId + NuageVspConstants.EXTERNAL_ID_DELIMITER + value;
+                        jsonEntity.put(field, externalIdSplitted[0]);
+                    } else if (build && !endsWithSuffix) {
+                        String vsdExternalId = value + externalIdSuffix;
                         jsonEntity.put(field, vsdExternalId);
                     }
                 }
