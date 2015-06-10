@@ -313,7 +313,7 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
                 try {
                     NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(cmd.getHostDetails(), null);
                     boolean removed = NuageVspApiUtil.removeCmsIdForNuageVsp(configuredNuageVspDevice.split(":")[1], nuageVspAPIParamsAsCmsUser);
-                    return new SyncNuageVspCmsIdAnswer(removed, configuredNuageVspDevice + ";", SyncNuageVspCmsIdCommand.SyncType.UNREGISTER);
+                    return new SyncNuageVspCmsIdAnswer(removed, configuredNuageVspDevice, SyncNuageVspCmsIdCommand.SyncType.UNREGISTER);
                 } catch (NuageVspAPIUtilException e) {
                     s_logger.error("Failed to unregister VSD CMS ID", e);
                     return new SyncNuageVspCmsIdAnswer(false, null, SyncNuageVspCmsIdCommand.SyncType.UNREGISTER);
