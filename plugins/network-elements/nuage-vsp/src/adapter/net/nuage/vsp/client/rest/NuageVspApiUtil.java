@@ -341,8 +341,6 @@ public class NuageVspApiUtil {
                         nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug("Enterprise Profile " + enterpriseDescription + " is getting removed and it exists in NuageVSP. " +
                         "Deleted the enterprise profile " + enterpriseProfileId + " from Nuage VSP");
-
-                deleteEnterpriseProfileInVsp(enterpriseExternalUuid, enterpriseDescription, nuageVspAPIParams);
             }
         } catch (Exception e) {
             String errorMessage = "Failed to delete Enterprise Profile in VPS using REST API. Json response from VSP REST API is "  + e.getMessage();
