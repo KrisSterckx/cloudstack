@@ -27,6 +27,22 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import com.cloud.exception.CloudException;
+import com.cloud.hypervisor.vmware.util.VmwareContext;
+import com.cloud.hypervisor.vmware.util.VmwareHelper;
+import com.cloud.network.Networks.BroadcastDomainType;
+import com.cloud.utils.ActionDelegate;
+import com.cloud.utils.Pair;
+import com.cloud.utils.cisco.n1kv.vsm.NetconfHelper;
+import com.cloud.utils.cisco.n1kv.vsm.PolicyMap;
+import com.cloud.utils.cisco.n1kv.vsm.PortProfile;
+import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.BindingType;
+import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.OperationType;
+import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.PortProfileType;
+import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.SwitchPortMode;
+import com.cloud.utils.db.GlobalLock;
+import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.utils.net.NetUtils;
 import com.vmware.vim25.AlreadyExistsFaultMsg;
 import com.vmware.vim25.BoolPolicy;
 import com.vmware.vim25.CustomFieldStringValue;
@@ -68,23 +84,6 @@ import com.vmware.vim25.VirtualSCSISharing;
 import com.vmware.vim25.VmwareDistributedVirtualSwitchPvlanSpec;
 import com.vmware.vim25.VmwareDistributedVirtualSwitchVlanIdSpec;
 import com.vmware.vim25.VmwareDistributedVirtualSwitchVlanSpec;
-
-import com.cloud.exception.CloudException;
-import com.cloud.hypervisor.vmware.util.VmwareContext;
-import com.cloud.hypervisor.vmware.util.VmwareHelper;
-import com.cloud.network.Networks.BroadcastDomainType;
-import com.cloud.utils.ActionDelegate;
-import com.cloud.utils.Pair;
-import com.cloud.utils.cisco.n1kv.vsm.NetconfHelper;
-import com.cloud.utils.cisco.n1kv.vsm.PolicyMap;
-import com.cloud.utils.cisco.n1kv.vsm.PortProfile;
-import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.BindingType;
-import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.OperationType;
-import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.PortProfileType;
-import com.cloud.utils.cisco.n1kv.vsm.VsmCommand.SwitchPortMode;
-import com.cloud.utils.db.GlobalLock;
-import com.cloud.utils.exception.CloudRuntimeException;
-import com.cloud.utils.net.NetUtils;
 
 public class HypervisorHostHelper {
     private static final Logger s_logger = Logger.getLogger(HypervisorHostHelper.class);

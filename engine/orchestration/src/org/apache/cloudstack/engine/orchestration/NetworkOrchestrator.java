@@ -38,7 +38,6 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.network.Networks;
-
 import org.apache.log4j.Logger;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
 import org.apache.cloudstack.context.CallContext;

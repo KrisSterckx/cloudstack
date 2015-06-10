@@ -165,5 +165,4 @@ public interface VpcManager {
         validateNtwkOffForNtwkInVpc(Long networkId, long newNtwkOffId, String newCidr, String newNetworkDomain, Vpc vpc, String gateway, Account networkOwner, Long aclId);
 
     List<PrivateGateway> getVpcPrivateGateways(long vpcId);
-
 }

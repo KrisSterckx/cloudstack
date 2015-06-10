@@ -27,4 +27,5 @@ public class MockVpcVirtualRouterElement extends VpcVirtualRouterElement {
     public boolean shutdownVpc(Vpc vpc, ReservationContext context) throws ConcurrentOperationException, ResourceUnavailableException {
         return true;
     }
+
 }

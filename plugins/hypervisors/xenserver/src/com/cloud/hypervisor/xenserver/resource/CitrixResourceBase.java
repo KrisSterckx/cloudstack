@@ -1032,7 +1032,8 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
             assert (BroadcastDomainType.getSchemeValue(uri) == BroadcastDomainType.Vlan);
             long vlan = Long.parseLong(BroadcastDomainType.getValue(uri));
             return enableVlanNetwork(conn, vlan, network);
-        } else if (type == BroadcastDomainType.Native || type == BroadcastDomainType.LinkLocal || type == BroadcastDomainType.Vsp) {
+        } else if (type == BroadcastDomainType.Native || type == BroadcastDomainType.LinkLocal ||
+                        type == BroadcastDomainType.Vsp) {
             return network.getNetwork();
         } else if (uri != null && type == BroadcastDomainType.Vswitch) {
             String header = uri.toString().substring(Networks.BroadcastDomainType.Vswitch.scheme().length() + "://".length());
@@ -1332,9 +1333,10 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
         vmr.nameLabel = vmSpec.getName();
         vmr.actionsAfterCrash = Types.OnCrashBehaviour.DESTROY;
         vmr.actionsAfterShutdown = Types.OnNormalExit.DESTROY;
+        vmr.otherConfig.put("vm_uuid", vmSpec.getUuid());
         vmr.VCPUsMax = (long) vmSpec.getCpus(); // FIX ME: In case of dynamic scaling this VCPU max should be the minumum of
                                                 // recommended value for that template and capacity remaining on host
-        vmr.otherConfig.put("vm_uuid", vmSpec.getUuid());
+
         if (isDmcEnabled(conn, host) && vmSpec.isEnableDynamicallyScaleVm()) {
             //scaling is allowed
             vmr.memoryStaticMin = getStaticMin(vmSpec.getOs(), vmSpec.getBootloader() == BootloaderType.CD, vmSpec.getMinRam(), vmSpec.getMaxRam());

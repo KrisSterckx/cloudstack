@@ -31,4 +31,5 @@ public interface NetworkACLServiceProvider extends NetworkElement {
      * @throws ResourceUnavailableException
      */
     boolean applyNetworkACLs(Network config, List<? extends NetworkACLItem> rules) throws ResourceUnavailableException;
+
 }

@@ -22,8 +22,8 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 
 import com.cloud.utils.exception.CloudRuntimeException;
-
 import org.apache.log4j.Logger;
+
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
 
 import com.cloud.dc.DataCenter;

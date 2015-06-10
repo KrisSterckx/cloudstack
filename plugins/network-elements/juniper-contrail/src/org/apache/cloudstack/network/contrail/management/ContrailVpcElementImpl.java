@@ -25,6 +25,7 @@ import javax.inject.Inject;
 
 import org.apache.cloudstack.network.contrail.model.VirtualNetworkModel;
 import org.apache.cloudstack.network.contrail.model.NetworkPolicyModel;
+
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Component;
 
