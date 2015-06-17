@@ -79,4 +79,12 @@ public class NuageVspConstants {
     public static final int SYNC_UP_INTERVAL_IN_MINUTES = 60 * 8;
 
     public static final String EXTERNAL_ID_DELIMITER = "@";
+
+    public static final String NETWORK_METADATA_TYPE = "type";
+
+    public static final String NETWORK_METADATA_VSD_ENTERPRISE_ID = "vsdEnterpriseId";
+
+    public static final String NETWORK_METADATA_VSD_DOMAIN_ID = "vsdDomainId";
+
+    public static final String NETWORK_METADATA_VSD_SUBNET_ID = "vsdSubnetId";
 }

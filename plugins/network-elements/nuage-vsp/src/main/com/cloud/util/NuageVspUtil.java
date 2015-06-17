@@ -3,9 +3,13 @@ package com.cloud.util;
 import com.cloud.network.NuageVspDeviceVO;
 import com.cloud.network.dao.NuageVspDao;
 import com.cloud.utils.StringUtils;
+import com.google.common.collect.Maps;
+import net.nuage.vsp.client.common.model.NuageVspEntity;
+import net.nuage.vsp.client.rest.NuageVspConstants;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 
 import java.util.List;
+import java.util.Map;
 
 public class NuageVspUtil {
 
@@ -44,4 +48,15 @@ public class NuageVspUtil {
         return null;
     }
 
+
+    public static Map<String, String> constructNetworkDetails(NuageVspEntity entity, String vsdEnterpriseId, String vsdDomainId, String vsdSubnetId) {
+        Map<String, String> networkDetails = Maps.newHashMap();
+        networkDetails.put(NuageVspConstants.NETWORK_METADATA_TYPE, entity.name());
+        networkDetails.put(NuageVspConstants.NETWORK_METADATA_VSD_ENTERPRISE_ID, vsdEnterpriseId);
+        networkDetails.put(NuageVspConstants.NETWORK_METADATA_VSD_DOMAIN_ID, vsdDomainId);
+        if (vsdSubnetId != null) {
+            networkDetails.put(NuageVspConstants.NETWORK_METADATA_VSD_SUBNET_ID, vsdSubnetId);
+        }
+        return networkDetails;
+    }
 }

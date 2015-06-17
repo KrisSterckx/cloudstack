@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.util.NuageVspUtil;
+import com.cloud.utils.Pair;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
 import net.nuage.vsp.client.common.model.ACLRule.ACLAction;
@@ -286,14 +287,16 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             String vpcOrSubnetUuid = null;
             String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
             String vspNetworkId = null;
+            Pair<String, String> vsdDomainAndSubnetId;
             if (vpcId != null) {
                 Vpc vpcObj = _vpcDao.findById(vpcId);
                 vpcOrSubnetUuid = vpcObj.getUuid();
-                vspNetworkId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser, vpcObj.getUuid());
+                vsdDomainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser, vpcObj.getUuid());
             } else {
                 vpcOrSubnetUuid = network.getUuid();
-                vspNetworkId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser);
+                vsdDomainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, network.getUuid(), nuageVspAPIParamsAsCmsUser);
             }
+            vspNetworkId = vsdDomainAndSubnetId.second();
             long networkOfferingId = networkOferringVO.getId();
             if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
                     || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
@@ -531,15 +534,17 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             boolean isVpc = false;
             try {
                 enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+                Pair<String, String> vsdDomainAndSubnetId;
                 if (vpcId != null) {
                     Vpc vpcObj = _vpcDao.findById(vpcId);
                     vpcOrSubnetUuid = vpcObj.getUuid();
-                    vspNetworkId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, config.getUuid(), nuageVspAPIParamsAsCmsUser, vpcObj.getUuid());
+                    vsdDomainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, config.getUuid(), nuageVspAPIParamsAsCmsUser, vpcObj.getUuid());
                     isVpc = true;
                 } else {
                     vpcOrSubnetUuid = config.getUuid();
-                    vspNetworkId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, config.getUuid(), nuageVspAPIParamsAsCmsUser);
+                    vsdDomainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, config.getUuid(), nuageVspAPIParamsAsCmsUser);
                 }
+                vspNetworkId = vsdDomainAndSubnetId.second();
                 long networkOfferingId = _ntwkOfferingDao.findById(config.getNetworkOfferingId()).getId();
                 if (_ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
                         || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat)
