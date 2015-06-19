@@ -216,6 +216,16 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                         if (StringUtils.isNotBlank(vspNetworkId)) {
                             s_logger.debug("VPC getting deleted and its state is  " + vpc.getState() + ". So delete VPC " + vpc.getUuid() + " from VSP");
                             result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN_TEMPLATE, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                        } else {
+                            // Added fallback for scenario described in CLOUD-406
+                            vspNetworkId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, vpc.getUuid(),
+                                    nuageVspAPIParamsAsCmsUser);
+                            if (StringUtils.isNotBlank(vspNetworkId)) {
+                                if (s_logger.isDebugEnabled()) {
+                                    s_logger.debug("VPC getting deleted and its state is  " + vpc.getState() + ". So delete VPC " + vpc.getUuid() + " from VSP");
+                                }
+                                result = NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.DOMAIN, vspNetworkId, nuageVspAPIParamsAsCmsUser, Arrays.asList(NuageVspApi.s_networkModificationError));
+                            }
                         }
                     }
                 }
