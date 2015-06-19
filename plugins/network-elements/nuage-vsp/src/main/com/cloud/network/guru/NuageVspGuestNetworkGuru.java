@@ -13,9 +13,9 @@ import java.util.Set;
 import javax.ejb.Local;
 import javax.inject.Inject;
 
+import com.cloud.network.dao.NetworkDetailVO;
+import com.cloud.network.dao.NetworkDetailsDao;
 import com.cloud.offerings.NetworkOfferingVO;
-import com.cloud.server.ResourceMetaDataService;
-import com.cloud.server.ResourceTag;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.Pair;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
@@ -102,7 +102,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     @Inject
     IPAddressDao _ipAddressDao;
     @Inject
-    ResourceMetaDataService _resourceMetaDataService;
+    NetworkDetailsDao _networkDetailsDao;
 
     public NuageVspGuestNetworkGuru() {
         super();
@@ -319,14 +319,14 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
     private void saveNetworkDetails(Network network, NuageVspEntity entity, String vsdEnterpriseId, String vsdDomainId, String vsdSubnetId) {
         Map<String, String> networkDetails = NuageVspUtil.constructNetworkDetails(entity, vsdEnterpriseId, vsdDomainId, vsdSubnetId);
-        _resourceMetaDataService.addResourceMetaData(String.valueOf(network.getId()), ResourceTag.ResourceObjectType.Network, networkDetails, false);
+        for (Map.Entry<String, String> networkDetail : networkDetails.entrySet()) {
+            NetworkDetailVO networkDetailVO = new NetworkDetailVO(network.getId(), networkDetail.getKey(), networkDetail.getValue(), false);
+            _networkDetailsDao.persist(networkDetailVO);
+        }
     }
 
     private void removeNetworkDetails(Network network) {
-        Map<String, String> networkDetails = _resourceMetaDataService.getDetailsMap(network.getId(), ResourceTag.ResourceObjectType.Network, false);
-        for (String key : networkDetails.keySet()) {
-            _resourceMetaDataService.deleteResourceMetaData(String.valueOf(network.getId()), ResourceTag.ResourceObjectType.Network, key);
-        }
+        _networkDetailsDao.removeDetails(network.getId());
     }
 
     @DB
@@ -777,7 +777,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         boolean isL3Domain = _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.SourceNat)
                 || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Service.StaticNat);
 
-        Map<String, String> networkDetails = _resourceMetaDataService.getDetailsMap(network.getId(), ResourceTag.ResourceObjectType.Network, false);
+        Map<String, String> networkDetails = _networkDetailsDao.listDetailsKeyPairs(network.getId(), false);
         if (MapUtils.isNotEmpty(networkDetails)) {
             attachedNetworkDetails.entityType = NuageVspEntity.valueOf(networkDetails.get(NuageVspConstants.NETWORK_METADATA_TYPE));
             if (isL3Domain) {
