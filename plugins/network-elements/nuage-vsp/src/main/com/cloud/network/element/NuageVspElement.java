@@ -255,7 +255,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         }
         Long vpcId = network.getVpcId();
         // apply firewall rules
-        if (vpcId == null) {
+        if (vpcId == null && _networkModel.areServicesSupportedByNetworkOffering(offering.getId(), Service.Firewall)) {
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("Started Sync Ingress Firewall Rule for network " + network.getName() + " at " + new Date());
             }

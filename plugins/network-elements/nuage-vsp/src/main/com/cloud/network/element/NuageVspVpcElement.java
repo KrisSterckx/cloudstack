@@ -305,7 +305,9 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
             rules = new ArrayList<NetworkACLItemVO>(1);
         }
         try {
-            applyACLRules(network, rules, true, null, !usesPreconfiguredDomainTemplate(vpc, network));
+            if (_networkModel.areServicesSupportedByNetworkOffering(offering.getId(), Service.NetworkACL)) {
+                applyACLRules(network, rules, true, null, !usesPreconfiguredDomainTemplate(vpc, network));
+            }
         } catch (NuageVspAPIUtilException exception) {
             s_logger.error("Exception occurred while applying the ACL rules. Try restarting the network");
         }
