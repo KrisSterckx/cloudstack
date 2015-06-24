@@ -512,6 +512,9 @@ public class NuageVspApi {
                 } else if (!(nuageErrorCode == s_noChangeInEntityErrorCode)) {
                     s_logger.error(errorMessage);
                 }
+                if (type == RequestType.DELETE && nuageErrorCode == s_resourceNotFoundErrorCode) {
+                    return httpResponseContent;
+                }
                 throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, nuageErrorCode, nuageErrorDetails, entityType, type);
             }
         } else if (httpResponse.getStatusLine().getStatusCode() == 401) {
