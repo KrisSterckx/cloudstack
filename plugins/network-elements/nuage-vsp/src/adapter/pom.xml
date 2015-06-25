@@ -22,13 +22,13 @@ under the License.
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>cloud-plugin-network-vsp-client</artifactId>
-  <version>4.5.1</version>
+  <version>4.5.1.nuage-SNAPSHOT</version>
   <name>Apache CloudStack Plugin - Nuage VSP Client</name>
 
   <parent>
       <groupId>org.apache.cloudstack</groupId>
       <artifactId>nuage-vsp</artifactId>
-      <version>4.5.1</version>
+      <version>4.5.1.nuage-SNAPSHOT</version>
       <relativePath>../../pom.xml</relativePath>
   </parent>
 
