@@ -775,7 +775,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             @Override
             public VpcOffering doInTransaction(TransactionStatus status) {
                 // create vpc offering object
-                VpcOfferingVO offering = new VpcOfferingVO(name, displayText, isDefault, serviceOfferingId);
+                VpcOfferingVO offering = new VpcOfferingVO(name, displayText, isDefault, serviceOfferingId, false, false);
 
                 if (state != null) {
                     offering.setState(state);

@@ -3537,7 +3537,9 @@
                                             var networkServiceObjs = [];
                                             networkServiceObjs.push({
                                                 name: 'Dhcp',
-                                                provider: [{name: 'VpcVirtualRouter'}]
+                                                provider: [
+                                                       {name: 'VpcVirtualRouter'},
+                                                       {name: 'NuageVsp'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'Dns',
@@ -3553,15 +3555,21 @@
                                             });
                                             networkServiceObjs.push({
                                                 name: 'StaticNat',
-                                                provider: [{name: 'VpcVirtualRouter'}]
+                                                provider: [
+                                                       {name: 'VpcVirtualRouter'},
+                                                       {name: 'NuageVsp'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'SourceNat',
-                                                provider: [{name: 'VpcVirtualRouter'}]
+                                                provider: [
+                                                       {name: 'VpcVirtualRouter'},
+                                                       {name: 'NuageVsp'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'NetworkACL',
-                                                provider: [{name: 'VpcVirtualRouter'}]
+                                                provider: [
+                                                       {name: 'VpcVirtualRouter'},
+                                                       {name: 'NuageVsp'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'PortForwarding',
@@ -3581,7 +3589,8 @@
                                                 provider: [
                                                     {name: 'NiciraNvp'},
                                                     {name: 'Ovs'},
-                                                    {name: 'JuniperContrailVpcRouter'}
+                                                    {name: 'JuniperContrailVpcRouter'},
+                                                    {name: 'NuageVsp'}
                                                 ]
                                             });
 

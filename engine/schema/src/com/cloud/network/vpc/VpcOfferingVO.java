@@ -86,16 +86,6 @@ public class VpcOfferingVO implements VpcOffering {
         this.state = State.Disabled;
     }
 
-    public VpcOfferingVO(String name, String displayText, boolean isDefault, Long serviceOfferingId) {
-        this.name = name;
-        this.displayText = displayText;
-        this.uniqueName = name;
-        this.serviceOfferingId = serviceOfferingId;
-        this.uuid = UUID.randomUUID().toString();
-        this.state = State.Disabled;
-        this.isDefault = isDefault;
-    }
-
     public VpcOfferingVO(String name, String displayText, boolean isDefault, Long serviceOfferingId,
                          boolean supportsDistributedRouter, boolean offersRegionLevelVPC) {
         this(name, displayText, serviceOfferingId);

@@ -905,17 +905,13 @@ public class VolumeOrchestrator extends ManagerBase implements VolumeOrchestrati
         List<VolumeVO> volumesForVm = _volsDao.findByInstance(vmId);
 
         if (volumesForVm != null) {
-            try {
-                for (VolumeVO volumeForVm : volumesForVm) {
-                    VolumeInfo volumeInfo = volFactory.getVolume(volumeForVm.getId());
-                    // pool id can be null for the VM's volumes in Allocated state
-                    if (volumeForVm.getPoolId() != null) {
-                        DataStore dataStore = dataStoreMgr.getDataStore(volumeForVm.getPoolId(), DataStoreRole.Primary);
-                        volService.disconnectVolumeFromHost(volumeInfo, host, dataStore);
-                    }
+            for (VolumeVO volumeForVm : volumesForVm) {
+                VolumeInfo volumeInfo = volFactory.getVolume(volumeForVm.getId());
+                // pool id can be null for the VM's volumes in Allocated state
+                if (volumeForVm.getPoolId() != null) {
+                    DataStore dataStore = dataStoreMgr.getDataStore(volumeForVm.getPoolId(), DataStoreRole.Primary);
+                    volService.disconnectVolumeFromHost(volumeInfo, host, dataStore);
                 }
-            } catch (Exception e) {
-                s_logger.error("Failed to disconnect volumes from host.", e);
             }
         }
     }
