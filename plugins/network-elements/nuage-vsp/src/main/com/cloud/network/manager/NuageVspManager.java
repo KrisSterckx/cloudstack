@@ -33,6 +33,8 @@ import com.cloud.utils.component.PluggableService;
 
 public interface NuageVspManager extends PluggableService {
 
+    public static final String nuageVspSharedNetworkOfferingWithSGServiceName = "DefaultNuageVspSharedNetworkOfferingWithSGService";
+
     public static final String nuageVPCOfferingName = "Nuage VSP VPC Offering";
 
     public static final String nuageVPCOfferingDisplayText = "Nuage VSP VPC Offering";

@@ -48,6 +48,11 @@ import com.cloud.domain.DomainVO;
 import com.cloud.domain.dao.DomainDao;
 import com.cloud.exception.ConnectionException;
 import com.cloud.host.Status;
+import com.cloud.offering.NetworkOffering;
+import com.cloud.offerings.NetworkOfferingServiceMapVO;
+import com.cloud.offerings.NetworkOfferingVO;
+import com.cloud.offerings.dao.NetworkOfferingDao;
+import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
 import com.cloud.user.DomainManager;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.fsm.StateListener;
@@ -183,6 +188,10 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     AgentManager _agentMgr;
     @Inject
     private DomainDao _domainDao;
+    @Inject
+    NetworkOfferingDao _networkOfferingDao;
+    @Inject
+    NetworkOfferingServiceMapDao _networkOfferingServiceMapDao;
 
     private ScheduledExecutorService scheduler;
 
@@ -594,6 +603,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
         initMessageBusListeners();
         initNuageVspResourceListeners();
+        initNuageNetworkOffering();
         initNuageVspVpcOffering();
         initNuageScheduledTasks();
         Status.getStateMachine().registerListener(this);
@@ -700,6 +710,35 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                 return true;
             }
         }, false, true, false);
+    }
+
+    @DB
+    private void initNuageNetworkOffering() {
+        Transaction.execute(new TransactionCallbackNoReturn() {
+            @Override
+            public void doInTransactionWithoutResult(TransactionStatus status) {
+                if (_networkOfferingDao.findByUniqueName(nuageVspSharedNetworkOfferingWithSGServiceName) == null) {
+                    NetworkOfferingVO defaultNuageVspSharedSGNetworkOffering =
+                            new NetworkOfferingVO(nuageVspSharedNetworkOfferingWithSGServiceName, "Offering for NuageVsp Shared Security group enabled networks",
+                                    Networks.TrafficType.Guest, false, false, null, null, true, NetworkOffering.Availability.Optional, null, Network.GuestType.Shared, true, true, false, false, false);
+
+                    defaultNuageVspSharedSGNetworkOffering.setState(NetworkOffering.State.Enabled);
+                    defaultNuageVspSharedSGNetworkOffering = _networkOfferingDao.persistDefaultNetworkOffering(defaultNuageVspSharedSGNetworkOffering);
+
+                    Map<Network.Service, Network.Provider> defaultNuageVspSharedSGNetworkOfferingProviders = new HashMap<Network.Service, Network.Provider>();
+                    defaultNuageVspSharedSGNetworkOfferingProviders.put(Service.Dhcp, Provider.NuageVsp);
+                    defaultNuageVspSharedSGNetworkOfferingProviders.put(Service.SecurityGroup, Provider.NuageVsp);
+                    defaultNuageVspSharedSGNetworkOfferingProviders.put(Service.Connectivity, Provider.NuageVsp);
+
+                    for (Service service : defaultNuageVspSharedSGNetworkOfferingProviders.keySet()) {
+                        NetworkOfferingServiceMapVO offService =
+                                new NetworkOfferingServiceMapVO(defaultNuageVspSharedSGNetworkOffering.getId(), service, defaultNuageVspSharedSGNetworkOfferingProviders.get(service));
+                        _networkOfferingServiceMapDao.persist(offService);
+                        s_logger.trace("Added service for the NuageVsp network offering: " + offService);
+                    }
+                }
+            }
+        });
     }
 
     @DB
