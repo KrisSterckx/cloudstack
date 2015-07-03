@@ -18,7 +18,7 @@
 
 function usage() {
     echo ""
-    echo "usage: ./package.sh [-v|--version] [-p|--pack] [-h|--help] [-o|--operating-system] [ARGS]"
+    echo "usage: ./package.sh [-p|--pack] [-h|--help] [-o|--operating-system] [ARGS]"
     echo ""
     echo "The commonly used Arguments are:"
     echo "-p|--pack oss|OSS             To package with only redistributable libraries (default)"
@@ -27,8 +27,8 @@ function usage() {
     echo "-o rhel7|RHEL7                To build for rhel7"
     echo "-s simulator|SIMULATOR        To build for Simulator"
     echo ""
-    echo "Examples: ./package.sh -v|--version 1.0 -p|--pack oss|OSS"
-    echo "          ./package.sh -v|--version 1.0 -p|--pack noredist|NOREDIST"
+    echo "Examples: ./package.sh -p|--pack oss|OSS"
+    echo "          ./package.sh -p|--pack noredist|NOREDIST"
     echo "          ./package.sh (Default OSS)"
     exit 1
 }
@@ -55,11 +55,11 @@ function packaging() {
         REALVER=`echo $VERSION | cut -d '-' -f 1`
         DEFVER="-D_ver $REALVER"
         DEFPRE="-D_prerelease 1"
-        DEFREL="-D_rel $vsdversion"
+        DEFREL="-D_rel SNAPSHOT"
     else
         REALVER=`echo $VERSION`
         DEFVER="-D_ver $REALVER"
-        DEFREL="-D_rel $vsdversion"
+        DEFREL="-D_rel 1"
     fi
 
     echo Preparing to package Apache CloudStack ${VERSION}
@@ -92,34 +92,25 @@ function packaging() {
 }
 
 if [ $# -lt 1 ] ; then
-    vsdversion="1.0"
     packaging "default"
 elif [ $# -gt 0 ] ; then
-    SHORTOPTS="hpv:o:"
-    LONGOPTS="help,pack:,version:,operating-system:,simulator:"
+    SHORTOPTS="hp:o:"
+    LONGOPTS="help,pack:,operating-system:,simulator:"
     ARGS=$(getopt -s bash -u -a --options $SHORTOPTS  --longoptions $LONGOPTS --name $0 -- "$@")
     eval set -- "$ARGS"
     echo "$ARGS"
     while [ $# -gt 0 ] ; do
         case "$1" in
-          -v | --version)
-            vsdversion=$2
-            shift
-            ;;
-        -h | --help)
+            -h | --help)
             usage
             exit 0
             ;;
         -p | --pack)
-            if [ "$vsdversion" == "" ] ; then 
-              echo "Error: Please specify VSP version number for the build"
-              exit 1
-            fi
             echo "Doing CloudStack Packaging ....."
             packageval=$2
             echo "$packageval"
             if [ "$packageval" == "oss" -o "$packageval" == "OSS" ] ; then
-                packageval=""
+                packageval = ""
             elif [ "$packageval" == "noredist" -o "$packageval" == "NOREDIST" ] ; then
                 packageval="noredist"
             else
