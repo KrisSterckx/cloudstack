@@ -33,7 +33,7 @@ under the License.
   </parent>
 
   <properties>
-      <pluginBuild>2.0</pluginBuild>
+      <pluginBuild>3.2</pluginBuild>
   </properties>
 
   <build>

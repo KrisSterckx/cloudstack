@@ -31,10 +31,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.TimeZone;
@@ -960,29 +958,9 @@ public class VmwareResource implements StoragePoolResource, ServerResource, Vmwa
             deviceConfigSpec.setOperation(VirtualDeviceConfigSpecOperation.ADD);
 
             vmConfigSpec.getDeviceChange().add(deviceConfigSpec);
-            if (nicTo.getType().equals(TrafficType.Guest) && dvSwitchUuid != null && nicTo.getGateway() != null && nicTo.getNetmask() != null)
-            {
-                //Set the VR IP
-                OptionValue newVal = new OptionValue();
-                newVal.setKey("vsp.vr-ip." + nicTo.getMac());
-                newVal.setValue(getVirtualRouterIP(nicTo.getGateway(), nicTo.getNetmask()));
-                vmConfigSpec.getExtraConfig().add(newVal);
-                //Set the dvswitch UUID
-                newVal = new OptionValue();
-                newVal.setKey("vsp.dvswitch." + nicTo.getMac());
-                newVal.setValue(dvSwitchUuid);
-                vmConfigSpec.getExtraConfig().add(newVal);
-            }
-            else {
-                if (!nicTo.getType().equals(TrafficType.Guest)) {
-                    s_logger.debug("NIC with MAC " + nicTo.getMac() + " and BroadcastDomainType " + nicTo.getBroadcastType() + " in network(" + nicTo.getGateway() + "/"
-                            + nicTo.getNetmask() + ") is " + nicTo.getType() + " traffic type. So, vsp-vr-ip is not set in the extraconfig");
-                } else {
-                    s_logger.debug("NIC with MAC " + nicTo.getMac() + " and BroadcastDomainType " + nicTo.getBroadcastType() + " in network(" + nicTo.getGateway() + "/"
-                            + nicTo.getNetmask() + ") is " + nicTo.getType()
-                            + " traffic type. But, it is not associated to dvportgroup or gateway is null. So, vsp-vr-ip is not set in the extraconfig");
-                }
-            }
+
+            configNuageVspExtraOption(vmConfigSpec.getExtraConfig(), nicTo, dvSwitchUuid);
+
             if (!vmMo.configureVm(vmConfigSpec)) {
                 throw new Exception("Failed to configure devices when running PlugNicCommand");
             }
@@ -1981,30 +1959,46 @@ public class VmwareResource implements StoragePoolResource, ServerResource, Vmwa
                 newVal.setKey("nvp.iface-id." + nicNum);
                 newVal.setValue(nicTo.getUuid());
                 extraOptions.add(newVal);
-                String dvSwitchUuid = nicUuidToDvSwitchUuid.get(nicTo.getUuid());
-                if (nicTo.getType().equals(TrafficType.Guest) && dvSwitchUuid != null && nicTo.getGateway() != null && nicTo.getNetmask() != null)
-                {
-                    newVal = new OptionValue();
-                    newVal.setKey("vsp.vr-ip." + nicTo.getMac());
-                    newVal.setValue(getVirtualRouterIP(nicTo.getGateway(), nicTo.getNetmask()));
-                    extraOptions.add(newVal);
-                    newVal = new OptionValue();
-                    newVal.setKey("vsp.dvswitch." + nicTo.getMac());
-                    newVal.setValue(dvSwitchUuid);
-                    extraOptions.add(newVal);
-                }
-                else {
-                    if (!nicTo.getType().equals(TrafficType.Guest)) {
-                        s_logger.debug("NIC with MAC " + nicTo.getMac() + " and BroadcastDomainType " + nicTo.getBroadcastType() + " in network(" + nicTo.getGateway() + "/"
-                                + nicTo.getNetmask() + ") is " + nicTo.getType() + " traffic type. So, vsp-vr-ip is not set in the extraconfig");
-                    } else {
-                        s_logger.debug("NIC with MAC " + nicTo.getMac() + " and BroadcastDomainType " + nicTo.getBroadcastType() + " in network(" + nicTo.getGateway() + "/"
-                                + nicTo.getNetmask() + ") is " + nicTo.getType()
-                                + " traffic type. But, it is not associated to dvportgroup or Gateway is null which is a VR scenario. So, vsp-vr-ip is not set in the extraconfig");
-                    }
-                }
+                configNuageVspExtraOption(extraOptions, nicTo, nicUuidToDvSwitchUuid.get(nicTo.getUuid()));
+
             }
             nicNum++;
+        }
+    }
+
+    /**
+     * Extra Config, required for Nuage VSP integration. <br/>
+     * For each interface :
+     *  <ul>
+     *  <li>vsp.vr-ip.&lt;mac&gt; = ip address of VR</li>
+     *  <li>vsp.dvswitch.&lt;mac&gt; = uuid of dvSwitch</li>
+     *  </ul>
+     */
+    private static void configNuageVspExtraOption(List<OptionValue> extraOptions, NicTO nicTo, String dvSwitchUuid) {
+
+        if (nicTo.getBroadcastType() != BroadcastDomainType.Vsp) {
+            return;
+        }
+
+        OptionValue newVal;
+
+        if (nicTo.getType().equals(TrafficType.Guest) && dvSwitchUuid != null && nicTo.getGateway() != null && nicTo.getNetmask() != null)  {
+            String vrIp = nicTo.getBroadcastUri().getPath().substring(1);
+            newVal = new OptionValue();
+            newVal.setKey("vsp.vr-ip." + nicTo.getMac());
+            newVal.setValue(vrIp);
+            extraOptions.add(newVal);
+            newVal = new OptionValue();
+            newVal.setKey("vsp.dvswitch." + nicTo.getMac());
+            newVal.setValue(dvSwitchUuid);
+            extraOptions.add(newVal);
+        } else  if (!nicTo.getType().equals(TrafficType.Guest)) {
+            s_logger.debug("NIC with MAC " + nicTo.getMac() + " and BroadcastDomainType " + nicTo.getBroadcastType() + " in network(" + nicTo.getGateway() + "/"
+                    + nicTo.getNetmask() + ") is " + nicTo.getType() + " traffic type. So, vsp-vr-ip is not set in the extraconfig");
+        } else {
+            s_logger.debug("NIC with MAC " + nicTo.getMac() + " and BroadcastDomainType " + nicTo.getBroadcastType() + " in network(" + nicTo.getGateway() + "/"
+                    + nicTo.getNetmask() + ") is " + nicTo.getType()
+                    + " traffic type. But, it is not associated to dvportgroup or Gateway is null which is a VR scenario. So, vsp-vr-ip is not set in the extraconfig");
         }
     }
 
@@ -5209,30 +5203,5 @@ public class VmwareResource implements StoragePoolResource, ServerResource, Vmwa
             s_logger.error(msg, e);
             return new Answer(cmd, false, msg);
         }
-    }
-
-    private static String getVirtualRouterIP(String gateway, String netmask) {
-        String virtualRouterIp;
-        //Check if the subnet has minimum 5 host in it.
-        String subnet = NetUtils.getSubNet(gateway, netmask);
-        long cidrSize = NetUtils.getCidrSize(netmask);
-        Set<Long> allIPsInCidr = NetUtils.getAllIpsFromCidr(subnet, cidrSize, new HashSet<Long>());
-
-        if (allIPsInCidr.size() > 3) {
-            //get the second IP and see if it the networks GatewayIP
-            Iterator<Long> ipIterator = allIPsInCidr.iterator();
-            long vip = ipIterator.next();
-            if (NetUtils.ip2Long(gateway) == vip) {
-                s_logger.debug("Gateway of the Network(" + gateway + "/" + netmask + ") has the first IP " + NetUtils.long2Ip(vip));
-                vip = ipIterator.next();
-                virtualRouterIp = NetUtils.long2Ip(vip);
-                s_logger.debug("So, reserving the 2nd IP " + virtualRouterIp + " for the Virtual Router IP in Network(" + gateway + "/" + netmask + ")");
-            } else {
-                virtualRouterIp = NetUtils.long2Ip(vip);
-                s_logger.debug("1nd IP is not used as the gateway IP. So, reserving" + virtualRouterIp + " for the Virtual Router IP for Network(" + gateway + "/" + netmask + ")");
-            }
-            return virtualRouterIp;
-        }
-        return null;
     }
 }

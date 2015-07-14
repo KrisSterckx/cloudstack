@@ -50,7 +50,7 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <NuageVsp-Plugin-Version>1.0</NuageVsp-Plugin-Version>
+              <NuageVsp-Plugin-Version>3.2</NuageVsp-Plugin-Version>
             </manifestEntries>
           </archive>
         </configuration>
