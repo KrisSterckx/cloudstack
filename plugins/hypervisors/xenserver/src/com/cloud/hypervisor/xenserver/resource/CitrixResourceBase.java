@@ -5123,6 +5123,9 @@ public abstract class CitrixResourceBase implements ServerResource, HypervisorRe
     }
 
     protected boolean can_bridge_firewall(Connection conn) {
+        // @TODO - FOR NUAGE THIS SHOULD RETURN TRUE AS NO-OP  --  originally the call block was commented out
+        // @TODO - This function could return fixed True IF we are in NUAGE case -- should develop script to find out on host ?
+
         return Boolean.valueOf(callHostPlugin(conn, "vmops", "can_bridge_firewall", "host_uuid", _host.uuid, "instance", _instance));
     }
 
