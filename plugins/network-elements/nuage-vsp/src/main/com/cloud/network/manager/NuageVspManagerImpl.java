@@ -58,6 +58,8 @@ import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
+import com.google.common.base.Objects;
+
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
@@ -257,12 +259,17 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             paramsTobeUpdated.put("port", String.valueOf(command.getPort()));
         }
         //params.put("apirelativepath", "/nuage/api/" + cmd.getApiVersion());
-        if (StringUtils.isNotBlank(command.getApiVersion())) {
-            String apiRelativePath = "/nuage/api/" + command.getApiVersion();
-            if (!apiRelativePath.equals(nuageVspHost.getDetails().get("apirelativepath"))) {
-                paramsTobeUpdated.put("apirelativepath", apiRelativePath);
-            }
+        String apiVersion = Objects.firstNonNull(command.getApiVersion(), NuageVspConstants.CURRENT_API_VERSION);
+        if (!NuageVspApiUtil.isSupportedApiVersion(apiVersion)) {
+            throw new CloudRuntimeException("Incorrect API version: Nuage plugin only supports " + NuageVspConstants.CURRENT_API_VERSION);
         }
+
+        String apiRelativePath = "/nuage/api/" + command.getApiVersion();
+        if (!apiRelativePath.equals(nuageVspHost.getDetails().get("apirelativepath"))) {
+            paramsTobeUpdated.put("apirelativepath", apiRelativePath);
+            paramsTobeUpdated.put("apiversion", apiVersion);
+        }
+
         //params.put("retrycount", String.valueOf(cmd.getApiRetryCount()));
         if (command.getApiRetryCount() != null &&
                 command.getApiRetryCount() != Integer.parseInt(nuageVspHost.getDetails().get("retrycount"))) {
@@ -328,6 +335,12 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             throw new CloudRuntimeException("A NuageVsp device is already configured on this physical network");
         }
 
+        String apiVersion = Objects.firstNonNull(cmd.getApiVersion(), NuageVspConstants.CURRENT_API_VERSION);
+
+        if (!NuageVspApiUtil.isSupportedApiVersion(apiVersion)) {
+            throw new CloudRuntimeException("Incorrect API version: Nuage plugin only supports " + NuageVspConstants.CURRENT_API_VERSION);
+        }
+
         Map<String, String> params = new HashMap<String, String>();
         params.put("guid", UUID.randomUUID().toString());
         params.put("zoneId", String.valueOf(physicalNetwork.getDataCenterId()));
@@ -339,12 +352,14 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         params.put("cmsuserpass", cmsUserPasswordBase64);
         int port = cmd.getPort();
         if (0 == port) {
-            port = 443;
+            port = 8443;
         }
         params.put("port", String.valueOf(port));
-        params.put("apirelativepath", "/nuage/api/" + cmd.getApiVersion());
-        params.put("retrycount", String.valueOf(cmd.getApiRetryCount()));
-        params.put("retryinterval", String.valueOf(cmd.getApiRetryInterval()));
+
+        params.put("apiversion", apiVersion);
+        params.put("apirelativepath", "/nuage/api/" + apiVersion);
+        params.put("retrycount", String.valueOf(Objects.firstNonNull(cmd.getApiRetryCount(), NuageVspConstants.DEFAULT_API_RETRY_COUNT)));
+        params.put("retryinterval", String.valueOf(Objects.firstNonNull(cmd.getApiRetryInterval(), NuageVspConstants.DEFAULT_API_RETRY_INTERVAL)));
 
         Map<String, Object> hostdetails = new HashMap<String, Object>();
         hostdetails.putAll(params);

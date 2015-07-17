@@ -1,14 +1,14 @@
 package com.cloud.util;
 
+import java.util.List;
+
+import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import com.cloud.network.NuageVspDeviceVO;
 import com.cloud.network.dao.NuageVspDao;
 import com.cloud.utils.StringUtils;
 import com.google.common.collect.Maps;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.rest.NuageVspConstants;
-import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
-
-import java.util.List;
 import java.util.Map;
 
 public class NuageVspUtil {
@@ -23,6 +23,15 @@ public class NuageVspUtil {
             }
         }
         return null;
+    }
+
+    public static boolean containsNuageVspDeviceCmsId(long nuageVspDeviceId, String configValue) {
+        return org.apache.commons.lang.StringUtils.isNotBlank(configValue) &&
+                (configValue.startsWith(nuageVspDeviceId + ":") || configValue.contains(";" + nuageVspDeviceId + ":"));
+    }
+
+    public static String getRegisteredNuageVspDevice(long nuageVspDeviceId, String cmsId) {
+        return nuageVspDeviceId + ":" + cmsId + ";";
     }
 
     public static String findNuageVspDeviceCmsId(long nuageVspDeviceId, ConfigurationDao configDao) {

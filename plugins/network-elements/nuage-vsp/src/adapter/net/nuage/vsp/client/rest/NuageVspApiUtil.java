@@ -485,13 +485,16 @@ public class NuageVspApiUtil {
             throw new NuageVspAPIUtilException(errorMessage.toString());
         }
 
-        if (StringUtils.isNotBlank(vsdDomainTemplateId)) {
+        boolean predefinedDomainTemplateSet = StringUtils.isNotBlank(vsdDomainTemplateId);
+        boolean setDefaultAcls = !predefinedDomainTemplateSet; // don't set defaults if domain template set
+
+        if (predefinedDomainTemplateSet) {
             domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
             if (StringUtils.isNotBlank(domainId)) {
                 subnetId = validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid, netmask, address, gateway, dnsServers,
                         ipAddressRanges, nuageVspAPIParams);
             } else {
-                Pair<String, String> domainAndSubnetId = createDomainZoneAndSubnet(reuseDomain, vsdDomainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                Pair<String, String> domainAndSubnetId = createDomainZoneAndSubnet(reuseDomain, vsdDomainTemplateId, networkName, uuid, name, gatewaySystemIds, setDefaultAcls,
                         defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
                 domainId = domainAndSubnetId.first();
                 subnetId = domainAndSubnetId.second();
@@ -527,7 +530,7 @@ public class NuageVspApiUtil {
                             .append(exception.getMessage());
                 }
 
-                Pair<String, String> domainAndSubnetId = createDomainZoneAndSubnet(reuseDomain, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                Pair<String, String> domainAndSubnetId = createDomainZoneAndSubnet(reuseDomain, domainTemplateId, networkName, uuid, name, gatewaySystemIds, setDefaultAcls,
                         defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
                 domainId = domainAndSubnetId.first();
                 subnetId = domainAndSubnetId.second();
@@ -571,7 +574,7 @@ public class NuageVspApiUtil {
     }
 
     private static Pair<String, String> createDomainZoneAndSubnet(boolean reuseDomain, String domainTemplateId, String networkName, String vpcOrSubnetUuid,
-                                                  String vpcOrSubnetName, Collection<String> gatewaySystemIds, boolean defaultCSEgressPolicy, JSONArray groupId,
+                                                  String vpcOrSubnetName, Collection<String> gatewaySystemIds, boolean createDefaultAcls, boolean defaultCSEgressPolicy, JSONArray groupId,
                                                   String netmask, String address, String gateway, List<String> dnsServers, Collection<String[]> ipAddressRanges, String networkUuid,
                                                   String enterpriseId, StringBuffer errorMessage, String debugMessage, NuageVspAPIParams nuageVspAPIParams) {
 
@@ -601,8 +604,10 @@ public class NuageVspApiUtil {
         attachDomainWithGatewayService(enterpriseId, networkName, gatewaySystemIds, nuageVspAPIParams, domainId, errorMessage);
 
         //Create default ingress and egress ACLs
-        errorMessage = createDefaultIngressAndEgressAcls(reuseDomain, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
-                new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
+        if (createDefaultAcls) {
+            errorMessage = createDefaultIngressAndEgressAcls(reuseDomain, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
+                    new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
+        }
 
         String zoneId = null;
         try {
@@ -2105,6 +2110,14 @@ public class NuageVspApiUtil {
             s_logger.error(errorMessage, exception);
             throw new NuageVspAPIUtilException(errorMessage);
         }
+    }
+
+    public static boolean isSupportedApiVersion(String version) {
+        return isSupportedApiVersion(new NuageVspApiVersion(version));
+    }
+
+    public static boolean isSupportedApiVersion(NuageVspApiVersion version) {
+        return version.compareTo(NuageVspApiVersion.V3_2) >= 0;
     }
 
     public static boolean isKnownCmsIdForNuageVsp(String cmsId, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
