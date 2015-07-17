@@ -32,6 +32,7 @@ import com.cloud.util.NuageVspUtil;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
+import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApi;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 
@@ -303,7 +304,12 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         } else {
             rules = new ArrayList<NetworkACLItemVO>(1);
         }
-        applyACLRules(network, rules, true, null, true);
+        try {
+            applyACLRules(network, rules, true, null, !usesPreconfiguredDomainTemplate(vpc, network));
+        } catch (NuageVspAPIUtilException exception) {
+            s_logger.error("Exception occurred while applying the ACL rules. Try restarting the network");
+        }
+
         if (s_logger.isDebugEnabled()) {
             s_logger.debug("Finished Sync Network ACL Rule for network " + network.getName() + " at " + new Date());
         }

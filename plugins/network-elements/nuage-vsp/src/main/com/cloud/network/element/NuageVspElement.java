@@ -41,6 +41,7 @@ import net.nuage.vsp.client.rest.NuageVspConstants;
 import org.apache.cloudstack.api.InternalIdentity;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.log4j.Logger;
@@ -232,6 +233,23 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             s_logger.info("Nic has no broadcast Uri with the virtual router IP for network " + network.getName());
             return false;
         }
+
+        Domain networksDomain = _domainDao.findById(network.getDomainId());
+        NuageVspAPIParams nuageVspAPIParamsAsCmsUser;
+        String enterpriseId;
+        boolean usesPreconfiguredDomainTemplate = false;
+        try {
+            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+            enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+            boolean isShared = offering.getGuestType() == Network.GuestType.Shared;
+            usesPreconfiguredDomainTemplate = usesPreconfiguredDomainTemplate(nuageVspAPIParamsAsCmsUser, enterpriseId, false, isShared, isShared ? networksDomain.getUuid() : network.getUuid());
+        } catch (NuageVspAPIUtilException exception) {
+            s_logger.error("Exception occurred while executing implement API. So, FIP clean up could not be execued successfully. Retry restarting the network "
+                    + network.getName());
+            return true;
+        }
+
         if (s_logger.isDebugEnabled()) {
             s_logger.debug("Starting the sync for network " + network.getName() + " at " + new Date());
         }
@@ -246,7 +264,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 // load cidrs if any
                 rule.setSourceCidrList(_firewallCidrsDao.getSourceCidrs(rule.getId()));
             }
-            applyACLRules(network, firewallIngressRulesToApply, false, true, true);
+            applyACLRules(network, firewallIngressRulesToApply, false, true, !usesPreconfiguredDomainTemplate);
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("Finished Sync Ingress Firewall Rule for network " + network.getName() + " at " + new Date());
             }
@@ -259,7 +277,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 // load cidrs if any
                 rule.setSourceCidrList(_firewallCidrsDao.getSourceCidrs(rule.getId()));
             }
-            applyACLRules(network, firewallEgressRulesToApply, false, false, true);
+            applyACLRules(network, firewallEgressRulesToApply, false, false, !usesPreconfiguredDomainTemplate);
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("Finished Sync Egress Firewall Rule for network " + network.getName() + " at " + new Date());
             }
@@ -279,13 +297,9 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         }
         try {
             //Get the L3 Domain or L2 Domain corresponding to the network
-            Domain networksDomain = _domainDao.findById(network.getDomainId());
             NuageVspEntity attachedNetworkType = null;
             NetworkOfferingVO networkOferringVO = _ntwkOfferingDao.findById(network.getNetworkOfferingId());
-            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             String vpcOrSubnetUuid = null;
-            String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
             String vspNetworkId = null;
             Pair<String, String> vsdDomainAndSubnetId;
             if (vpcId != null) {
@@ -374,6 +388,41 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             s_logger.debug("Finished the sync for network " + network.getName() + " at " + new Date());
         }
         return true;
+    }
+
+    protected boolean usesPreconfiguredDomainTemplate(Vpc vpc, Network network) throws NuageVspAPIUtilException {
+        try {
+            Domain networksDomain = _domainDao.findById(network.getDomainId());
+            String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+            String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+            return usesPreconfiguredDomainTemplate(nuageVspAPIParamsAsCmsUser, enterpriseId, true, false, vpc.getUuid());
+        } catch (NuageVspAPIUtilException exception) {
+            s_logger.error("Exception occurred while executing implement API. So, FIP clean up could not be execued successfully. Retry restarting the network "
+                    + network.getName());
+            throw exception;
+        }
+    }
+
+    protected boolean usesPreconfiguredDomainTemplate(NuageVspAPIParams nuageVspAPIParamsAsCmsUser, String enterpriseId, boolean isVpc, boolean isShared, String networkUuid) throws NuageVspAPIUtilException {
+        String preConfiguredDomainTemplateName;
+        if (isVpc) {
+            preConfiguredDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
+        } else if (isShared) {
+            preConfiguredDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspSharedNetworkDomainTemplateName.key());
+        } else {
+            preConfiguredDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateName.key());
+        }
+
+        String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
+                networkUuid, NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
+        String preConfiguredDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
+                "name", preConfiguredDomainTemplateName, nuageVspAPIParamsAsCmsUser);
+        String preConfiguredDomainTemplateId = NuageVspApiUtil.getEntityId(preConfiguredDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);
+        if (StringUtils.isBlank(domainTemplateId) || StringUtils.isBlank(preConfiguredDomainTemplateId)) {
+            return false;
+        }
+        return domainTemplateId.equals(preConfiguredDomainTemplateId);
     }
 
     @Override
@@ -702,12 +751,21 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
 
                 if (StringUtils.isNotBlank(attachedL2DomainOrDomainId)) {
                     //Get all the Ingress and Egress ACL Entries associated to the Network
-                    Map<String, Object> ingressAclTemplate = NuageVspApiUtil
-                            .getACLAssociatedToDomain(network.getUuid(), attachedL2DomainOrDomainId, attachedNetworkType, NuageVspEntity.INGRESS_ACLTEMPLATES, nuageVspAPIParamsAsCmsUser, true).iterator().next();
-                    ingressACLTempId = (String)ingressAclTemplate.get(NuageVspAttribute.ID.getAttributeName());
-                    Map<String, Object> egressAclTemplate = NuageVspApiUtil
-                            .getACLAssociatedToDomain(network.getUuid(), attachedL2DomainOrDomainId, attachedNetworkType, NuageVspEntity.EGRESS_ACLTEMPLATES, nuageVspAPIParamsAsCmsUser, true).iterator().next();
-                    egressACLTempId = (String)egressAclTemplate.get(NuageVspAttribute.ID.getAttributeName());
+                    List<Map<String, Object>> associatedIngressAclTemplates = NuageVspApiUtil
+                            .getACLAssociatedToDomain(network.getUuid(), attachedL2DomainOrDomainId, attachedNetworkType, NuageVspEntity.INGRESS_ACLTEMPLATES, nuageVspAPIParamsAsCmsUser, false);
+                    List<Map<String, Object>> associatedEgressAclTemplates = NuageVspApiUtil
+                            .getACLAssociatedToDomain(network.getUuid(), attachedL2DomainOrDomainId, attachedNetworkType, NuageVspEntity.EGRESS_ACLTEMPLATES, nuageVspAPIParamsAsCmsUser, false);
+
+                    if (CollectionUtils.isNotEmpty(associatedIngressAclTemplates)) {
+                        Map<String, Object> ingressAclTemplate = associatedIngressAclTemplates.iterator().next();
+                        ingressACLTempId = (String)ingressAclTemplate.get(NuageVspAttribute.ID.getAttributeName());
+                    }
+
+                    if (CollectionUtils.isNotEmpty(associatedEgressAclTemplates)) {
+                        Map<String, Object> egressAclTemplate = associatedEgressAclTemplates.iterator().next();
+                        egressACLTempId = (String)egressAclTemplate.get(NuageVspAttribute.ID.getAttributeName());
+                    }
+
                     //To set the location field in the ACL get the Subnet Id it is a L3 domain
                     String aclNetworkLocationId = null;
                     if (attachedNetworkType.equals(NuageVspEntity.DOMAIN)) {
@@ -736,8 +794,10 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                             }
                         }
 
-                        updateACLEntriesInVsp(isNetworkAcl, vpcOrSubnetUuid, network, networkOferringVO, rules, attachedNetworkType, nuageVspAPIParamsAsCmsUser,
-                                aclNetworkLocationId, enterpriseId, ingressACLTempId, egressACLTempId, isAcsIngressAcl, attachedL2DomainOrDomainId);
+                        if (StringUtils.isNotBlank(ingressACLTempId) && StringUtils.isNotBlank(egressACLTempId)) {
+                            updateACLEntriesInVsp(isNetworkAcl, vpcOrSubnetUuid, network, networkOferringVO, rules, attachedNetworkType, nuageVspAPIParamsAsCmsUser,
+                                    aclNetworkLocationId, enterpriseId, ingressACLTempId, egressACLTempId, isAcsIngressAcl, attachedL2DomainOrDomainId, networkReset);
+                        }
                         long updateTime = System.currentTimeMillis();
                         s_logger.debug("Network " + networkName + "(" + random + ")   time taken to process this thread with  " + rules.size() + " rules is "
                                 + (updateTime - lockacquiredtime));
@@ -852,7 +912,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
 
     private void updateACLEntriesInVsp(boolean isNetworkAcl, String vpcOrSubnetUuid, Network network, NetworkOfferingVO networkOferringVO, List<? extends InternalIdentity> rules,
             NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, String aclNetworkLocationId, String enterpriseId, String ingressACLTempId,
-            String egressACLTempId, Boolean isAcsIngressAcl, String attachedL2DomainOrDomainId) throws Exception {
+            String egressACLTempId, Boolean isAcsIngressAcl, String attachedL2DomainOrDomainId, boolean networkReset) throws Exception {
 
         Map<ACLRule, List<String>> finalErrorMap = new HashMap<ACLRule, List<String>>();
         List<String> successfullyAddedIngressACls = new ArrayList<String>();
@@ -890,8 +950,10 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         if (noOfActiveAclsFrmOriginalList == rules.size()) {
             s_logger.debug("Number(" + noOfActiveAclsFrmOriginalList + ") of ACL rule in network " + network.getName()
                     + " in Active state matches the input list. This is a ACLList replace scenario or Network Restart. So, processing the ACL lists.");
-            resetAllAclRulesInTheNetwork(network, rules, isAcsIngressAcl, attachedNetworkType, attachedL2DomainOrDomainId, networkOferringVO, ingressACLTempId, egressACLTempId,
-                    nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, aclNetworkLocationId);
+            if (networkReset) {
+                resetAllAclRulesInTheNetwork(network, rules, isAcsIngressAcl, attachedNetworkType, attachedL2DomainOrDomainId, networkOferringVO, ingressACLTempId, egressACLTempId,
+                        nuageVspAPIParamsAsCmsUser, vpcOrSubnetUuid, aclNetworkLocationId);
+            }
             for (InternalIdentity rule : rules) {
                 Map<ACLRule, List<String>> errorMap = new HashMap<ACLRule, List<String>>();
                 ACLRule acsAclRule = new ACLRule(rule, networkOferringVO.getEgressDefaultPolicy());
