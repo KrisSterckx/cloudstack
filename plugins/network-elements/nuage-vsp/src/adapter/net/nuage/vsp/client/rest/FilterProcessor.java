@@ -15,6 +15,7 @@ public class FilterProcessor {
 
     public static String processFilter(String filter, String nuageVspCmsId) {
         if (filter == null) return null;
+        if (nuageVspCmsId == null) return filter;
 
         for (String externalIdField : EXTERNAL_ID_FIELDS) {
             if (!filter.contains(externalIdField)) continue;

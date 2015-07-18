@@ -496,14 +496,14 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         // Whenever a Nuage VSP Host comes up, check if all CS domains are present and check if the CMS ID is valid
         if (transition.getToState() == Status.Up && vo instanceof HostVO) {
             HostVO host = (HostVO) vo;
-            validateDomainsOnVsp(host);
+            _hostDao.loadDetails(host);
 
             List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByHost(host.getId());
             if (!CollectionUtils.isEmpty(nuageVspDevices)) {
                 for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
                     ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
                     String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
-                    SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, ((HostVO) host).getDetails(), SyncType.AUDIT);
+                    SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, host.getDetails(), SyncType.AUDIT);
                     SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
 
                     if (answer != null && !answer.getSuccess()) {
@@ -513,6 +513,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                     }
                 }
             }
+
+            validateDomainsOnVsp(host);
         }
         return true;
     }
@@ -581,9 +583,9 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                 try {
                     List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
                     for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
-                        HostVO host = _hostDao.findById(nuageVspDevice.getHostId());
-                        _hostDao.loadDetails(host);
-                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host);
+                        HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
+                        String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), _configDao);
+                        NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host, nuageVspCmsId);
                         NuageVspApiUtil.deleteEnterpriseInVsp(domain.getUuid(), NuageVspApiUtil.getEnterpriseName(domain.getName(), domain.getPath()), nuageVspAPIParamsAsCmsUser);
                     }
                 } catch (NuageVspAPIUtilException e) {
