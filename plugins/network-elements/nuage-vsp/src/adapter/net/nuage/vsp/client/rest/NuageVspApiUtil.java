@@ -387,10 +387,10 @@ public class NuageVspApiUtil {
                 gatewaySystemIds, ipAddressRange, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
     }
 
-    public static void createIsolatedL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
+    public static void createIsolatedL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
             Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
             JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
-        createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRange,
+        createVPCOrL3NetworkWithDefaultACLs(enterpriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRange,
                 defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled, preConfiguredDomainTemplateName);
     }
 
@@ -467,7 +467,7 @@ public class NuageVspApiUtil {
                     throw new NuageVspAPIUtilException(error);
                 }
 
-                createDomainZoneAndSubnet(isVpc, isIpAccessControlFeatureEnabled, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
+                createDomainZoneAndSubnet(reuseDomain, isIpAccessControlFeatureEnabled, domainTemplateId, networkName, uuid, name, gatewaySystemIds,
                         defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRange, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
             }
         }
@@ -906,7 +906,7 @@ public class NuageVspApiUtil {
         return getIsolatedSubNetwork(entepriseId, networkUuid, nuageVspAPIParams, null);
     }
 
-    public static String getIsolatedSubNetwork(String entepriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams, String vpcUuid) throws NuageVspAPIUtilException {
+    public static String getIsolatedSubNetwork(String enterpriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams, String vpcUuid) throws NuageVspAPIUtilException {
 
         String domainId = null;
         String zoneId = null;
@@ -920,9 +920,9 @@ public class NuageVspApiUtil {
             vpcOrSubnetUuid = networkUuid;
         }
 
-        //Check if L3 DominTemplate exists
+        //Check if L3 DomainTemplate exists
         try {
-            domainId = getIsolatedDomain(entepriseId, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, nuageVspAPIParams);
+            domainId = getIsolatedDomain(enterpriseId, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, nuageVspAPIParams);
 
             zoneId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, vpcOrSubnetUuid, nuageVspAPIParams);
             if (StringUtils.isBlank(zoneId)) {
@@ -1731,6 +1731,15 @@ public class NuageVspApiUtil {
             fieldValue = (T) entityDetails.iterator().next().get(fieldName);
         }
         return fieldValue;
+    }
+
+    public static int getChildrenCount(NuageVspEntity entityType, String entityId, NuageVspEntity childEntityType, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        String jsonString = findEntityUsingFilter(entityType, entityId, childEntityType, null, nuageVspAPIParams);
+        if (StringUtils.isNotBlank(jsonString)) {
+            List<Map<String, Object>> entityDetails = parseJson(jsonString, childEntityType);
+            return entityDetails.size();
+        }
+        return 0;
     }
 
     public static boolean cleanUpVspStaleObjects(NuageVspEntity entityToBeCleaned, String entityIDToBeCleaned, NuageVspAPIParams nuageVspAPIParams, List<Integer> retryNuageErrorCodes) {
