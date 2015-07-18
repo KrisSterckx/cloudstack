@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -523,6 +524,20 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         return dnsServers;
     }
 
+    public List<String> getGatewaySystemIds() {
+        List<String> gatewayIds = null;
+        String gatewaySystemIds = String.valueOf(_configDao.getValue(NuageVspManager.NuageVspConfigGateway.key()));
+        if (StringUtils.isNotBlank(gatewaySystemIds)) {
+            StringTokenizer tokens = new StringTokenizer(gatewaySystemIds, ",");
+            gatewayIds = new ArrayList<String>(tokens.countTokens());
+            while (tokens.hasMoreTokens())
+            {
+                gatewayIds.add(tokens.nextToken());
+            }
+        }
+        return gatewayIds;
+    }
+
     private void initNuageScheduledTasks() {
         ThreadFactory threadFactory = new ThreadFactory() {
             public Thread newThread(Runnable runnable) {
@@ -574,6 +589,6 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
     @Override
     public ConfigKey<?>[] getConfigKeys() {
-        return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspIpAccessControl};
+        return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspIpAccessControl, NuageVspConfigGateway};
     }
 }

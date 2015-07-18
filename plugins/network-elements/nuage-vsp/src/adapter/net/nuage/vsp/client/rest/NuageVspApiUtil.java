@@ -380,15 +380,15 @@ public class NuageVspApiUtil {
     }
 
     public static String createIsolatedL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
-            Long networkAclId, List<String> dnsServers, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId,
-            Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
-        return createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, ipAddressRange, defaultCSEgressPolicy,
-                networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled);
+            Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
+            JSONArray groupId, Boolean isIpAccessControlFeatureEnabled, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        return createVPCOrL3NetworkWithDefaultACLs(entepriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRange,
+                defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, isIpAccessControlFeatureEnabled);
     }
 
-    public static String createVPCOrL3NetworkWithDefaultACLs(String entepriseId, String networkName, long networkId, String netmask, String address, String gateway,
-            Long networkAclId, List<String> dnsServers, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId,
-            NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled) throws NuageVspAPIUtilException {
+    public static String createVPCOrL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
+            Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String> ipAddressRange, boolean defaultCSEgressPolicy, String networkUuid,
+            JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, Boolean isIpAccessControlFeatureEnabled) throws NuageVspAPIUtilException {
 
         s_logger.debug("Create or find a VPC/Isolated network associated to network " + networkName + " in VSP");
         String domainTemplateId = null;
@@ -409,10 +409,10 @@ public class NuageVspApiUtil {
             vpcOrSubnetUuid = networkUuid;
             vpcOrSubnetName = networkName;
         }
-        domainTemplateId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, entepriseId, NuageVspEntity.DOMAIN_TEMPLATE, vpcOrSubnetUuid, nuageVspAPIParams);
+        domainTemplateId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, vpcOrSubnetUuid, nuageVspAPIParams);
         if (StringUtils.isNotBlank(domainTemplateId)) {
             s_logger.debug(debugMessage + " Domain Template " + domainTemplateId + " already exists for network " + networkName + " in VSP");
-            domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, entepriseId, NuageVspEntity.DOMAIN, vpcOrSubnetUuid, nuageVspAPIParams);
+            domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, vpcOrSubnetUuid, nuageVspAPIParams);
             if (StringUtils.isNotBlank(domainId)) {
                 subnetId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.SUBNET, networkUuid, nuageVspAPIParams);
                 if ((!isVpc) && StringUtils.isBlank(subnetId)) {
@@ -447,7 +447,7 @@ public class NuageVspApiUtil {
 
             try {
                 String domainTemplateJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                        NuageVspEntity.ENTERPRISE, entepriseId, NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateEntity, null, nuageVspAPIParams.getRestRelativePath(),
+                        NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE, domainTemplateEntity, null, nuageVspAPIParams.getRestRelativePath(),
                         nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
                 s_logger.debug(debugMessage + " Created DomainTemplate for network " + networkName + " in VSP . Response from VSP is " + domainTemplateJson);
                 domainTemplateId = getEntityId(domainTemplateJson, NuageVspEntity.DOMAIN_TEMPLATE);
@@ -467,7 +467,7 @@ public class NuageVspApiUtil {
                     domainEntity.put(NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), domainTemplateId);
 
                     String domainJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                            NuageVspEntity.ENTERPRISE, entepriseId, NuageVspEntity.DOMAIN, domainEntity, null, nuageVspAPIParams.getRestRelativePath(),
+                            NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, domainEntity, null, nuageVspAPIParams.getRestRelativePath(),
                             nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
                     s_logger.debug(debugMessage + " Created Domain for network " + networkName + " in VSP . Response from VSP is " + domainJson);
                     domainId = getEntityId(domainJson, NuageVspEntity.DOMAIN);
@@ -476,6 +476,9 @@ public class NuageVspApiUtil {
                 errorMessage.append(debugMessage + " Failed to instantiate DomainTemplate for network ").append(networkName).append(".  Json response from VSP REST API is  ")
                         .append(exception.getMessage());
             }
+
+            //Attach Domain with the Gateway service
+            attachDomainWithGatewayService(enterpriseId, networkName, gatewaySystemIds, nuageVspAPIParams, domainId, errorMessage);
 
             //Create default ingress and egress ACLs
             errorMessage = createDefaultIngressAndEgressAcls(isVpc, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
@@ -529,6 +532,82 @@ public class NuageVspApiUtil {
         }
 
         return subnetId;
+    }
+
+    private static void attachDomainWithGatewayService(String enterpriseId, String networkName, Collection<String> gatewaySystemIds, NuageVspAPIParams nuageVspAPIParams,
+            String domainId, StringBuffer errorMessage) {
+        if (gatewaySystemIds != null && gatewaySystemIds.size() > 0) {
+            //This is a use case where the Gateway is configured with WAN services
+            //Get the Gateway details using serviceID filter.
+            try {
+                if (errorMessage.length() == 0) {
+                    for (String gatewaySystemId : gatewaySystemIds) {
+                        String gatewayJson = findEntityUsingFilter(NuageVspEntity.GATEWAY, null, null, NuageVspAttribute.GATEWAY_SYSTEMID.getAttributeName(), gatewaySystemId, nuageVspAPIParams);
+                        if (StringUtils.isNotBlank(gatewayJson)) {
+                            String gatewayId = getEntityId(gatewayJson, NuageVspEntity.GATEWAY);
+                            //Check if the gateway has the enterprisePermission
+                            String enterprisePermissionJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.GATEWAY, gatewayId,
+                                    NuageVspEntity.ENTERPRISEPERMISSION, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
+                                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                            List<Map<String, Object>> permissionDetails = parseJson(enterprisePermissionJson, NuageVspEntity.ENTERPRISEPERMISSION);
+                            boolean isPermitted = false;
+                            for (Map<String, Object> permission : permissionDetails) {
+                                if (permission.get(NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYID.getAttributeName()).equals(enterpriseId)) {
+                                    isPermitted = true;
+                                    break;
+                                }
+                            }
+                            if (!isPermitted) {
+                                //Add the enterprise permission to the Gateway before using it
+                                Map<String, Object> permission = new HashMap<String, Object>();
+                                permission.put(NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYYPE.getAttributeName(), "enterprise");
+                                permission.put(NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYID.getAttributeName(), enterpriseId);
+                                permission.put(NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ACTION.getAttributeName(), "USE");
+                                NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                                        NuageVspEntity.GATEWAY, gatewayId, NuageVspEntity.ENTERPRISEPERMISSION, permission, null, nuageVspAPIParams.getRestRelativePath(),
+                                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                            }
+                            // Then get all the services that is not attached to the gateway
+                            String wanServiceJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), NuageVspEntity.GATEWAY, gatewayId,
+                                    NuageVspEntity.WAN_SERVICES, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(),
+                                    nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser());
+                            if (StringUtils.isNotBlank(wanServiceJson)) {
+                                List<Map<String, Object>> wanServices = parseJson(wanServiceJson, NuageVspEntity.WAN_SERVICES);
+                                String availableWanserviceId = null;
+                                for (Map<String, Object> wanService : wanServices) {
+                                    String vpcConnectId = (String)wanService.get(NuageVspAttribute.WAN_SERVICE_VPN_CONNECT_ID.getAttributeName());
+                                    if (vpcConnectId == null) {
+                                        availableWanserviceId = (String)wanService.get(NuageVspAttribute.ID.getAttributeName());
+                                        break;
+                                    }
+                                }
+                                if (availableWanserviceId != null) {
+                                    //Found the WANService that is free. Now now create a VPNConnection for the Domain with this WANService
+                                    s_logger.debug("Found a free WAN service " + availableWanserviceId + " and trying to associate with VSP domain with id " + domainId);
+                                    Map<String, Object> vpnConnection = new HashMap<String, Object>();
+                                    vpnConnection.put(NuageVspAttribute.VPN_CONNECTION_WANSERVICE_NAME.getAttributeName(), availableWanserviceId);
+                                    vpnConnection.put(NuageVspAttribute.VPN_CONNECTION_WANSERVICE_ID.getAttributeName(), availableWanserviceId);
+                                    NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                                            NuageVspEntity.DOMAIN, domainId, NuageVspEntity.VPN_CONNECTION, vpnConnection, null, nuageVspAPIParams.getRestRelativePath(),
+                                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser());
+                                    break;
+                                } else {
+                                    s_logger.debug("There are no free WAN Services available on the Gateway with systemID " + gatewaySystemId + " in VSP");
+                                }
+                            } else {
+                                s_logger.debug("Could not find any WAN Services attached with Gateway with systemID " + gatewaySystemId + " in VSP");
+                            }
+                        } else {
+                            s_logger.debug("Gateway with systemID " + gatewaySystemId + " is not found in VSP");
+                        }
+                    }
+                }
+            } catch (Exception exception) {
+                errorMessage.append("Failed to associate Gateway service to VSP Domain ").append(networkName).append(".  Json response from VSP REST API is  ")
+                .append(exception.getMessage());
+            }
+            //Then pick one service and attach it to a new VPCConnect object under the domain
+        }
     }
 
     private static String createL3Subnet(String networkName, String netmask, String address, String gateway, List<String> dnsServers, Collection<String> ipAddressRange,

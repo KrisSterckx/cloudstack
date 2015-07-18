@@ -56,7 +56,12 @@ public enum NuageVspEntity {
             NuageVspAttribute.ENTERPRISE_NTWK_MACRO_NETMASK, NuageVspAttribute.EXTERNAL_ID),
     ENTERPRISE_PROFILE("enterpriseprofiles", NuageVspAttribute.ID, NuageVspAttribute.ENTERPRISE_PROFILE_NAME, NuageVspAttribute.ENTERPRISE_PROFILE_DESCRIPTION, NuageVspAttribute.ENTERPRISE_PROFILE_ADV_QOS,
             NuageVspAttribute.ENTERPRISE_PROFILE_FLOATING_IP_QUOTA, NuageVspAttribute.ENTERPRISE_PROFILE_FWD_CLASSES, NuageVspAttribute.ENTERPRISE_PROFILE_GATEWAY_MGMT, NuageVspAttribute.EXTERNAL_ID),
-    DHCP_OPTIONS("dhcpoptions", NuageVspAttribute.ID, NuageVspAttribute.DHCP_OPTIONS_LENGTH, NuageVspAttribute.DHCP_OPTIONS_TYPE, NuageVspAttribute.DHCP_OPTIONS_VALUE, NuageVspAttribute.EXTERNAL_ID);
+    DHCP_OPTIONS("dhcpoptions", NuageVspAttribute.ID, NuageVspAttribute.DHCP_OPTIONS_LENGTH, NuageVspAttribute.DHCP_OPTIONS_TYPE, NuageVspAttribute.DHCP_OPTIONS_VALUE, NuageVspAttribute.EXTERNAL_ID),
+    GATEWAY("gateways", NuageVspAttribute.ID, NuageVspAttribute.GATEWAY_SYSTEMID),
+    WAN_SERVICES("services", NuageVspAttribute.ID, NuageVspAttribute.WAN_SERVICE_VPN_CONNECT_ID),
+    VPN_CONNECTION("vpnconnections", NuageVspAttribute.ID, NuageVspAttribute.VPN_CONNECTION_WANSERVICE_ID, NuageVspAttribute.VPN_CONNECTION_WANSERVICE_NAME),
+    ENTERPRISEPERMISSION("enterprisepermissions", NuageVspAttribute.ID, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYID, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYYPE, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ACTION),
+    ;
 
     private String entityType;
 
