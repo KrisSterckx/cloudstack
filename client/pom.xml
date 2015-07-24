@@ -116,7 +116,7 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-  <groupId>org.apache.cloudstack</groupId>
+      <groupId>org.apache.cloudstack</groupId>
       <artifactId>cloud-plugin-network-ovs</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -130,6 +130,16 @@
       <artifactId>cloud-plugin-network-vns</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.cloudstack</groupId>
+      <artifactId>cloud-plugin-network-vsp</artifactId>
+      <version>${project.version}</version>
+      </dependency>
+    <dependency>
+      <groupId>org.apache.cloudstack</groupId>
+      <artifactId>cloud-plugin-network-vsp-client</artifactId>
+      <version>${project.version}</version>
+      </dependency>
     <dependency>
       <groupId>org.apache.cloudstack</groupId>
       <artifactId>cloud-plugin-network-midonet</artifactId>
