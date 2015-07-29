@@ -605,7 +605,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         initNuageVspResourceListeners();
         initNuageNetworkOffering();
         initNuageVspVpcOffering();
-        initNuageScheduledTasks();
+        //For 4.5 : Do not schedule the Nuage VSP Sync Task
+        //initNuageScheduledTasks();
         Status.getStateMachine().registerListener(this);
         return true;
     }
