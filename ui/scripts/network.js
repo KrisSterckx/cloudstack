@@ -5360,23 +5360,6 @@
                                         docID: 'helpVPCDomain',
                                         label: 'label.DNS.domain.for.guest.networks'
                                     },
-                                    publicLoadBalancerProvider: {
-                                        label: 'label.public.load.balancer.provider',
-                                        select: function(args) {
-                                            var items = [];
-                                            items.push({
-                                                id: 'VpcVirtualRouter',
-                                                description: 'VpcVirtualRouter'
-                                            });
-                                            items.push({
-                                                id: 'Netscaler',
-                                                description: 'Netscaler'
-                                            });
-                                            args.response.success({
-                                                data: items
-                                            });
-                                        }
-                                    },
                                     vpcoffering: {
                                         label: 'label.vpc.offering',
                                         validation: {
