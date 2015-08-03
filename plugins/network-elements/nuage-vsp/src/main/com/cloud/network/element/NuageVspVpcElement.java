@@ -32,7 +32,6 @@ import com.cloud.util.NuageVspUtil;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
-import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApi;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 
@@ -304,12 +303,9 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         } else {
             rules = new ArrayList<NetworkACLItemVO>(1);
         }
-        try {
-            if (_networkModel.areServicesSupportedByNetworkOffering(offering.getId(), Service.NetworkACL)) {
-                applyACLRules(network, rules, true, null, !usesPreconfiguredDomainTemplate(vpc, network));
-            }
-        } catch (NuageVspAPIUtilException exception) {
-            s_logger.error("Exception occurred while applying the ACL rules. Try restarting the network");
+
+        if (_networkModel.areServicesSupportedByNetworkOffering(offering.getId(), Service.NetworkACL)) {
+            applyACLRules(network, rules, true, null, false);
         }
 
         if (s_logger.isDebugEnabled()) {
@@ -444,8 +440,7 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
     @Override
     public boolean applyNetworkACLs(Network network, List<? extends NetworkACLItem> rules) throws ResourceUnavailableException {
         s_logger.debug("Handling applyNetworkACLs for network " + network.getName() + " with " + rules.size() + " Network ACLs");
-        applyACLRules(network, rules, true, null, rules.isEmpty() ? true : false);
-        return true;
+        return applyACLRules(network, rules, true, null, rules.isEmpty());
     }
 
     @Override
@@ -458,7 +453,7 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
             String aclNetworkLocationId, List<? extends InternalIdentity> rules, Map<String, Map<String, Object>> vspIngressAclEntriesExtUuidToAcl,
             Map<String, Map<String, Object>> vspEgressAclEntriesExtUuidToAcl, String ingressACLTempId, Map<Integer, Map<String, Object>> defaultVspIngressAclEntries,
             String egressACLTempId, Map<Integer, Map<String, Object>> defaultVspEgressAclEntries, String networkName, Boolean isAcsIngressAcl,
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser) throws Exception {
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser, boolean createDefaultRules) throws Exception {
         List<String> deletedEntries = new ArrayList<String>();
         if (rules == null || rules.isEmpty()) {
             s_logger.debug("ACL rule list for network " + networkName + " is empty. So, no rules to apply. So, delete all the existing ACL in VSP for this network");
@@ -479,8 +474,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
             s_logger.debug("ACL rule list for network " + networkName + " is not empty. So, some rules needs to be applied in VSP");
             NuageVspApiUtil.cleanStaleAclsFromVsp(rules, vspIngressAclEntriesExtUuidToAcl, vspEgressAclEntriesExtUuidToAcl, null, nuageVspAPIParamsAsCmsUser);
         }
-        NuageVspApiUtil.createDefaultIngressAndEgressAcls(true, vpcOrSubnetUuid, true, attachedNetworkType, attachedL2DomainOrDomainId, new StringBuffer(), ingressACLTempId,
-                defaultVspIngressAclEntries, egressACLTempId, defaultVspEgressAclEntries, networkName, nuageVspAPIParamsAsCmsUser);
+        if (createDefaultRules) {
+            NuageVspApiUtil.createDefaultIngressAndEgressAcls(true, vpcOrSubnetUuid, true, attachedNetworkType, attachedL2DomainOrDomainId, new StringBuffer(), ingressACLTempId,
+                    defaultVspIngressAclEntries, egressACLTempId, defaultVspEgressAclEntries, networkName, nuageVspAPIParamsAsCmsUser);
+        }
         return deletedEntries;
     }
 
