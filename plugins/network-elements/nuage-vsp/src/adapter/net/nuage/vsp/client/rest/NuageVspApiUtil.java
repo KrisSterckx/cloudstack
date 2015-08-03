@@ -596,6 +596,13 @@ public class NuageVspApiUtil {
                         nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug(debugMessage + " Created Domain for network " + networkName + " in VSP . Response from VSP is " + domainJson);
                 domainId = getEntityId(domainJson, NuageVspEntity.DOMAIN);
+
+                // Create the default ACL template for the domain
+                // CLOUD-465 : Remove the if-statement when we want to re-enable CloudStack ACL rules when using a preconfigured domain template
+                if (createDefaultAcls) {
+                    ingressAclTemplId = createDefaultAclTemplate(NuageVspEntity.INGRESS_ACLTEMPLATES, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, domainId, networkName, nuageVspAPIParams);
+                    egressAclTemplId = createDefaultAclTemplate(NuageVspEntity.EGRESS_ACLTEMPLATES, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, domainId, networkName, nuageVspAPIParams);
+                }
             }
         } catch (Exception exception) {
             errorMessage.append(debugMessage).append(" Failed to instantiate DomainTemplate for network ").append(networkName).append(".  Json response from VSP REST API is  ")
@@ -1030,8 +1037,10 @@ public class NuageVspApiUtil {
 
     public static List<Map<String, Object>> getACLAssociatedToDomain(String networkUuid, String attachedTemplateId, NuageVspEntity attachedNetworkType, NuageVspEntity aclType,
             NuageVspAPIParams nuageVspAPIParams, boolean throwExceptionIfNotPresent) throws Exception {
+        String filter = NuageVspAttribute.ACLTEMPLATES_PRIORITY_TYPE.getAttributeName() + " == 'NONE' AND " + NuageVspAttribute.PARENT_ID.getAttributeName()
+                + " == '" + attachedTemplateId + "'";
         String aclTemplates = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                attachedNetworkType, attachedTemplateId, aclType, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
+                attachedNetworkType, attachedTemplateId, aclType, filter, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
                 nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
         if (StringUtils.isNotBlank(aclTemplates)) {
             //Get the ACLEntries...

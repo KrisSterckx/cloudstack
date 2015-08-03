@@ -757,6 +757,29 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                         return true;
                     }
                 }
+
+                // CLOUD-465 : Remove these lines when we want to re-enable CloudStack ACL rules when using a preconfigured domain template
+                if (usesPreConfiguredDomainTemplate && CollectionUtils.isNotEmpty(rules)) {
+                    boolean success = true;
+                    for (InternalIdentity rule : rules) {
+                        if (rule instanceof FirewallRule) {
+                            FirewallRule fwRule = (FirewallRule) rule;
+                            success = fwRule.getState() == FirewallRule.State.Revoke || fwRule.getState() == FirewallRule.State.Deleting;
+                        } else if (rule instanceof NetworkACLItem) {
+                            NetworkACLItem aclRule = (NetworkACLItem) rule;
+                            success = aclRule.getState() == NetworkACLItem.State.Revoke;
+                        }
+
+                        if (!success) break;
+                    }
+
+                    if (!success) {
+                        s_logger.info("CloudStack ACLs are not supported with Nuage Preconfigured Domain Template");
+                        throw new NuageVspAPIUtilException("CloudStack ACLs are not supported with Nuage Preconfigured Domain Template");
+                    }
+                    return true;
+                }
+
                 try {
                     enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
                     Long vpcId = network.getVpcId();
