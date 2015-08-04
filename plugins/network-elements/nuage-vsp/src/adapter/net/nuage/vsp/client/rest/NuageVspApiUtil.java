@@ -579,6 +579,8 @@ public class NuageVspApiUtil {
                                                   String enterpriseId, StringBuffer errorMessage, String debugMessage, NuageVspAPIParams nuageVspAPIParams) {
 
         String domainId = null;
+        String ingressAclTemplId = null;
+        String egressAclTemplId = null;
         try {
             if (errorMessage.length() == 0) {
                 //Now instantiate the domain template
@@ -594,6 +596,13 @@ public class NuageVspApiUtil {
                         nuageVspAPIParams.getNuageVspCmsId());
                 s_logger.debug(debugMessage + " Created Domain for network " + networkName + " in VSP . Response from VSP is " + domainJson);
                 domainId = getEntityId(domainJson, NuageVspEntity.DOMAIN);
+
+                // Create the default ACL template for the domain
+                // CLOUD-465 : Remove the if-statement when we want to re-enable CloudStack ACL rules when using a preconfigured domain template
+                if (createDefaultAcls) {
+                    ingressAclTemplId = createDefaultAclTemplate(NuageVspEntity.INGRESS_ACLTEMPLATES, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, domainId, networkName, nuageVspAPIParams);
+                    egressAclTemplId = createDefaultAclTemplate(NuageVspEntity.EGRESS_ACLTEMPLATES, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, domainId, networkName, nuageVspAPIParams);
+                }
             }
         } catch (Exception exception) {
             errorMessage.append(debugMessage).append(" Failed to instantiate DomainTemplate for network ").append(networkName).append(".  Json response from VSP REST API is  ")
@@ -605,8 +614,8 @@ public class NuageVspApiUtil {
 
         //Create default ingress and egress ACLs
         if (createDefaultAcls) {
-            errorMessage = createDefaultIngressAndEgressAcls(reuseDomain, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, null,
-                    new HashMap<Integer, Map<String, Object>>(0), null, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
+            errorMessage = createDefaultIngressAndEgressAcls(reuseDomain, vpcOrSubnetUuid, defaultCSEgressPolicy, NuageVspEntity.DOMAIN, domainId, errorMessage, ingressAclTemplId,
+                    new HashMap<Integer, Map<String, Object>>(0), egressAclTemplId, new HashMap<Integer, Map<String, Object>>(0), networkName, nuageVspAPIParams);
         }
 
         String zoneId = null;
@@ -1028,8 +1037,10 @@ public class NuageVspApiUtil {
 
     public static List<Map<String, Object>> getACLAssociatedToDomain(String networkUuid, String attachedTemplateId, NuageVspEntity attachedNetworkType, NuageVspEntity aclType,
             NuageVspAPIParams nuageVspAPIParams, boolean throwExceptionIfNotPresent) throws Exception {
+        String filter = NuageVspAttribute.ACLTEMPLATES_PRIORITY_TYPE.getAttributeName() + " == 'NONE' AND " + NuageVspAttribute.PARENT_ID.getAttributeName()
+                + " == '" + attachedTemplateId + "'";
         String aclTemplates = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                attachedNetworkType, attachedTemplateId, aclType, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
+                attachedNetworkType, attachedTemplateId, aclType, filter, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
                 nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
         if (StringUtils.isNotBlank(aclTemplates)) {
             //Get the ACLEntries...
@@ -1210,22 +1221,28 @@ public class NuageVspApiUtil {
         }
     }
 
+    private static String createDefaultAclTemplate(NuageVspEntity aclTemplateType, String vpcOrSubnetUuid, NuageVspEntity domainType, String domainId, String networkName,
+            NuageVspAPIParams nuageVspAPIParams) throws Exception {
+        Map<String, Object> egressACLEntity = new HashMap<String, Object>();
+        egressACLEntity.put(NuageVspAttribute.ACLTEMPLATES_NAME.getAttributeName(), aclTemplateType == NuageVspEntity.INGRESS_ACLTEMPLATES ? "Ingress ACL" : "Egress ACL");
+        egressACLEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
+        egressACLEntity.put(NuageVspAttribute.ACLTEMPLATES_ALLOW_IP.getAttributeName(), false);
+        egressACLEntity.put(NuageVspAttribute.ACLTEMPLATES_ALLOW_NON_IP.getAttributeName(), false);
+        egressACLEntity.put(NuageVspAttribute.ACLTEMPLATES_ACTIVE.getAttributeName(), true);
+
+        String aclTemplateJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), domainType,
+                domainId, aclTemplateType, egressACLEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
+                nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
+        String aclTemplateId = NuageVspApiUtil.getEntityId(aclTemplateJson, aclTemplateType);
+        s_logger.debug("Created ACLTemplate for network " + networkName + " in VSP . Response from VSP is " + aclTemplateJson);
+        return aclTemplateId;
+    }
+
     private static void createDefaultEgressAcl(boolean reuseDomain, String vpcOrSubnetUuid, NuageVspEntity domainType, String domainId, boolean defaultCSEgressPolicy,
             String egressACLTempId, Map<Integer, Map<String, Object>> defaultVspEgressAclEntries, String networkName, NuageVspAPIParams nuageVspAPIParams) throws Exception {
         //Now add Egress ACL template
         if (egressACLTempId == null) {
-            Map<String, Object> egressACLEntity = new HashMap<String, Object>();
-            egressACLEntity.put(NuageVspAttribute.EGRESS_ACLTEMPLATES_NAME.getAttributeName(), "Egress ACL");
-            egressACLEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
-            egressACLEntity.put(NuageVspAttribute.EGRESS_ACLTEMPLATES_ALLOW_IP.getAttributeName(), false);
-            egressACLEntity.put(NuageVspAttribute.EGRESS_ACLTEMPLATES_ALLOW_NON_IP.getAttributeName(), false);
-            egressACLEntity.put(NuageVspAttribute.EGRESS_ACLTEMPLATES_ACTIVE.getAttributeName(), true);
-
-            String egressACL = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), domainType,
-                    domainId, NuageVspEntity.EGRESS_ACLTEMPLATES, egressACLEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
-            egressACLTempId = NuageVspApiUtil.getEntityId(egressACL, NuageVspEntity.EGRESS_ACLTEMPLATES);
-            s_logger.debug("Created EgressACLTemplate for network " + networkName + " in VSP . Response from VSP is " + egressACL);
+            egressACLTempId = createDefaultAclTemplate(NuageVspEntity.EGRESS_ACLTEMPLATES, vpcOrSubnetUuid, domainType, domainId, networkName, nuageVspAPIParams);
         }
 
         //Default Subnet Allow ACL
@@ -1256,19 +1273,7 @@ public class NuageVspApiUtil {
             String ingressACLTempId, Map<Integer, Map<String, Object>> defaultVspIngressAclEntries, String networkName, NuageVspAPIParams nuageVspAPIParams) throws Exception {
         //Now add Ingress ACL template
         if (ingressACLTempId == null) {
-            Map<String, Object> ingressACLEntity = new HashMap<String, Object>();
-            ingressACLEntity.put(NuageVspAttribute.INGRESS_ACLTEMPLATES_NAME.getAttributeName(), "Ingress ACL");
-            ingressACLEntity.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), vpcOrSubnetUuid);
-            //Set the default allow IP based on the defaultCSEgressPolicy
-            ingressACLEntity.put(NuageVspAttribute.INGRESS_ACLTEMPLATES_ALLOW_IP.getAttributeName(), false);
-            ingressACLEntity.put(NuageVspAttribute.INGRESS_ACLTEMPLATES_ALLOW_NON_IP.getAttributeName(), false);
-            ingressACLEntity.put(NuageVspAttribute.INGRESS_ACLTEMPLATES_ACTIVE.getAttributeName(), true);
-
-            String ingressACL = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), domainType,
-                    domainId, NuageVspEntity.INGRESS_ACLTEMPLATES, ingressACLEntity, null, nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(),
-                    nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
-            ingressACLTempId = NuageVspApiUtil.getEntityId(ingressACL, NuageVspEntity.INGRESS_ACLTEMPLATES);
-            s_logger.debug("Created IngressACLTemplate for network " + networkName + " in VSP . Response from VSP is " + ingressACL);
+            ingressACLTempId = createDefaultAclTemplate(NuageVspEntity.INGRESS_ACLTEMPLATES, vpcOrSubnetUuid, domainType, domainId, networkName, nuageVspAPIParams);
         }
 
         if (!defaultVspIngressAclEntries.containsKey(NuageVspConstants.DEFAULT_SUBNET_ALLOW_ACL_PRIORITY)) {
