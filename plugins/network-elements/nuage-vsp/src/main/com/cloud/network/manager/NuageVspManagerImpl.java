@@ -361,7 +361,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         params.put("cmsuserpass", cmsUserPasswordBase64);
         int port = cmd.getPort();
         if (0 == port) {
-            port = 8443;
+            // While the default VSD port is 8443, clustering via HAProxy will go over port 443 (CLOUD-58)
+            port = 443;
         }
         params.put("port", String.valueOf(port));
 
