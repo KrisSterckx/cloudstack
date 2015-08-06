@@ -34,34 +34,20 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
-import com.cloud.agent.Listener;
-import com.cloud.agent.api.AgentControlAnswer;
-import com.cloud.agent.api.AgentControlCommand;
-import com.cloud.agent.api.Answer;
-import com.cloud.agent.api.Command;
-import com.cloud.agent.api.PingNuageVspCommand;
-import com.cloud.agent.api.StartupCommand;
-import com.cloud.agent.api.SyncNuageVspCmsIdAnswer;
-import com.cloud.agent.api.SyncNuageVspCmsIdCommand;
-import com.cloud.domain.Domain;
-import com.cloud.domain.DomainVO;
-import com.cloud.domain.dao.DomainDao;
-import com.cloud.exception.ConnectionException;
-import com.cloud.host.Status;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.offerings.NetworkOfferingServiceMapVO;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
-import com.cloud.user.DomainManager;
-import com.cloud.util.NuageVspUtil;
-import com.cloud.utils.fsm.StateListener;
-import com.cloud.utils.fsm.StateMachine2;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.log4j.Logger;
 
 import com.google.common.base.Objects;
 
@@ -72,11 +58,16 @@ import org.apache.cloudstack.framework.config.impl.ConfigurationVO;
 import org.apache.cloudstack.framework.messagebus.MessageBus;
 import org.apache.cloudstack.framework.messagebus.MessageSubscriber;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.log4j.Logger;
-
 import com.cloud.agent.AgentManager;
+import com.cloud.agent.Listener;
+import com.cloud.agent.api.AgentControlAnswer;
+import com.cloud.agent.api.AgentControlCommand;
+import com.cloud.agent.api.Answer;
+import com.cloud.agent.api.Command;
+import com.cloud.agent.api.PingNuageVspCommand;
+import com.cloud.agent.api.StartupCommand;
+import com.cloud.agent.api.SyncNuageVspCmsIdAnswer;
+import com.cloud.agent.api.SyncNuageVspCmsIdCommand;
 import com.cloud.agent.api.UpdateNuageVspDeviceAnswer;
 import com.cloud.agent.api.UpdateNuageVspDeviceCommand;
 import com.cloud.api.ApiDBUtils;
@@ -88,10 +79,15 @@ import com.cloud.api.commands.UpdateNuageVspDeviceCmd;
 import com.cloud.api.response.NuageVspDeviceResponse;
 import com.cloud.dc.DataCenterVO;
 import com.cloud.dc.dao.DataCenterDao;
+import com.cloud.domain.Domain;
+import com.cloud.domain.DomainVO;
+import com.cloud.domain.dao.DomainDao;
+import com.cloud.exception.ConnectionException;
 import com.cloud.exception.InvalidParameterValueException;
 import com.cloud.host.DetailVO;
 import com.cloud.host.Host;
 import com.cloud.host.HostVO;
+import com.cloud.host.Status;
 import com.cloud.host.dao.HostDao;
 import com.cloud.host.dao.HostDetailsDao;
 import com.cloud.network.Network;
@@ -126,6 +122,8 @@ import com.cloud.resource.ResourceManager;
 import com.cloud.resource.ResourceState;
 import com.cloud.resource.ServerResource;
 import com.cloud.user.AccountManager;
+import com.cloud.user.DomainManager;
+import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.StringUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.db.DB;
@@ -134,6 +132,8 @@ import com.cloud.utils.db.TransactionCallback;
 import com.cloud.utils.db.TransactionCallbackNoReturn;
 import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
+import com.cloud.utils.fsm.StateListener;
+import com.cloud.utils.fsm.StateMachine2;
 
 import static com.cloud.agent.api.SyncNuageVspCmsIdCommand.SyncType;
 
@@ -273,7 +273,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             throw new CloudRuntimeException("Incorrect API version: Nuage plugin only supports " + NuageVspConstants.CURRENT_API_VERSION);
         }
 
-        String apiRelativePath = "/nuage/api/" + command.getApiVersion();
+        String apiRelativePath = "/nuage/api/" + apiVersion;
         if (!apiRelativePath.equals(nuageVspHost.getDetails().get("apirelativepath"))) {
             paramsTobeUpdated.put("apirelativepath", apiRelativePath);
             paramsTobeUpdated.put("apiversion", apiVersion);
