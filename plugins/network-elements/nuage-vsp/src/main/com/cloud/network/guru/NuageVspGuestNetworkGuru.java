@@ -656,6 +656,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         //get the L3 DomainTemplate with externalUuid
         String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
                 networkUuid, NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
+        if (domainTemplateId == null) return true;
+
         String preConfiguredDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
                 "name", preConfiguredDomainTemplateName, nuageVspAPIParamsAsCmsUser);
         String preConfiguredDomainTemplateId = NuageVspApiUtil.getEntityId(preConfiguredDomainTemplateEntity, NuageVspEntity.DOMAIN_TEMPLATE);

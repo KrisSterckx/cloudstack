@@ -197,6 +197,8 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                     //get the L3 DomainTemplate with externalUuid
                     String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
                             vpc.getUuid(), NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
+                    if (domainTemplateId == null) return true;
+
                     String vpcDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
                     String vpcDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
                             "name", vpcDomainTemplateName, nuageVspAPIParamsAsCmsUser);
