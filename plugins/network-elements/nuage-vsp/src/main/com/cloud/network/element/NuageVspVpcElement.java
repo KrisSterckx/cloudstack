@@ -69,7 +69,6 @@ import com.cloud.network.vpc.VpcManager;
 import com.cloud.network.vpc.dao.NetworkACLDao;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.user.AccountManager;
-import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.vm.DomainRouterVO;
 import com.cloud.vm.NicProfile;
 import com.cloud.vm.ReservationContext;
@@ -274,11 +273,13 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
         List<DomainRouterVO> routers = _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
         if ((routers == null) || (routers.size() == 0)) {
-            throw new ResourceUnavailableException("Can't find at least one running router!", DataCenter.class, network.getDataCenterId());
+            s_logger.warn("Can't find at least one running router!");
+            return false;
         }
 
         if (routers.size() > 1) {
-            throw new CloudRuntimeException("Found more than one router in vpc " + vpc);
+            s_logger.warn("Found more than one router in vpc " + vpc);
+            return false;
         }
 
         DomainRouterVO router = routers.get(0);
@@ -289,7 +290,8 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                 paramsForRouter.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
             }
             if (!_vpcRouterMgr.addVpcRouterToGuestNetwork(router, network, false, paramsForRouter)) {
-                throw new CloudRuntimeException("Failed to add VPC router " + router + " to guest network " + network);
+                s_logger.warn("Failed to add VPC router " + router + " to guest network " + network);
+                return false;
             } else {
                 s_logger.debug("Successfully added VPC router " + router + " to guest network " + network);
             }
@@ -341,11 +343,13 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
             params.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
             List<DomainRouterVO> routers = _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
             if ((routers == null) || (routers.size() == 0)) {
-                throw new ResourceUnavailableException("Can't find at least one running router!", DataCenter.class, network.getDataCenterId());
+                s_logger.warn("Can't find at least one running router!");
+                return false;
             }
 
             if (routers.size() > 1) {
-                throw new CloudRuntimeException("Found more than one router in vpc " + vpc);
+                s_logger.warn("Found more than one router in vpc " + vpc);
+                return false;
             }
 
             DomainRouterVO router = routers.get(0);
@@ -357,7 +361,8 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                     paramsForRouter.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
                 }
                 if (!_vpcRouterMgr.addVpcRouterToGuestNetwork(router, network, false, paramsForRouter)) {
-                    throw new CloudRuntimeException("Failed to add VPC router " + router + " to guest network " + network);
+                    s_logger.warn("Failed to add VPC router " + router + " to guest network " + network);
+                    return false;
                 } else {
                     s_logger.debug("Successfully added VPC router " + router + " to guest network " + network);
                 }
