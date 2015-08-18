@@ -4,7 +4,7 @@ import java.util.Map;
 
 public class SyncNuageVspCmsIdCommand extends Command {
 
-    public enum SyncType { AUDIT, AUDIT_ONLY, REGISTER, UNREGISTER }
+    public enum SyncType { AUDIT, AUDIT_ONLY, AUDIT_WITH_CORRECTION, REGISTER, UNREGISTER }
 
     private long _nuageVspDeviceId;
     private String _currentCmsIdConfigValue;

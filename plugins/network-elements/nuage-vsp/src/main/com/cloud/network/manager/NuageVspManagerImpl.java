@@ -290,6 +290,22 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             paramsTobeUpdated.put("retryinterval", String.valueOf(command.getApiRetryInterval()));
         }
 
+        // Audit the registered CMS ID, correct if needed
+        if (command.getAudit() != null && command.getAudit().equals(Boolean.TRUE)) {
+            ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
+            String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
+            SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, nuageVspHost.getDetails(), SyncType.AUDIT_WITH_CORRECTION);
+            SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+
+            if (answer != null && answer.getSuccess()) {
+                if (answer.getSyncType() == SyncType.REGISTER) {
+                    registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
+                }
+            } else {
+                s_logger.fatal("Nuage VSP Device with ID " + nuageVspDevice.getId() + " is configured with an unknown CMS ID!");
+            }
+        }
+
         if (paramsTobeUpdated.size() > 0) {
             Map<String, String> latestParamsValue = new HashMap<String, String>();
             latestParamsValue.putAll(nuageVspHost.getDetails());

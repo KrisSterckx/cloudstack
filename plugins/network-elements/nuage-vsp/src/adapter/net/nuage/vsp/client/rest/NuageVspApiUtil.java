@@ -2103,6 +2103,26 @@ public class NuageVspApiUtil {
         }
     }
 
+    public static String registerCmsIdForNuageVsp(String cmsId, String cmsName, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException  {
+        try {
+            // Get Cloud Management System ID
+            Map<String, Object> entity = new HashMap<String, Object>();
+            entity.put(NuageVspAttribute.CLOUD_MGMT_SYSTEM_NAME.getAttributeName(), cmsName);
+            entity.put(NuageVspAttribute.ID.getAttributeName(), cmsId);
+
+            String cmsJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                    NuageVspEntity.CLOUD_MGMT_SYSTEMS, entity, nuageVspAPIParams.getRestRelativePath(),
+                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(),
+                    nuageVspAPIParams.getNuageVspCmsId());
+            s_logger.debug("Retrieved CMS ID for VSP . Response from VSP is " + cmsJson);
+            return getEntityId(cmsJson, NuageVspEntity.CLOUD_MGMT_SYSTEMS);
+        } catch (Exception exception) {
+            String errorMessage = "Failed to register CMS ID VSP. Response from VSP REST API is  " + exception.getMessage();
+            s_logger.error(errorMessage, exception);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
+    }
+
     public static boolean removeCmsIdForNuageVsp(String cmsId, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
         try {
             NuageVspApi.executeRestApi(RequestType.DELETE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),

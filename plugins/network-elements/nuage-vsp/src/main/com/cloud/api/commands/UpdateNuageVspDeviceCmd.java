@@ -77,6 +77,9 @@ public class UpdateNuageVspDeviceCmd extends BaseAsyncCmd {
     @Parameter(name = VspConstants.NUAGE_VSP_API_RETRY_INTERVAL, type = CommandType.LONG, description = "the time to wait after failure before retrying to communicate to Nuage VSD")
     private Long apiRetryInterval;
 
+    @Parameter(name = VspConstants.NUAGE_VSP_API_AUDIT, type = CommandType.BOOLEAN, description = "whether or not we need to audit the configured CMS ID")
+    private Boolean audit;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -131,6 +134,14 @@ public class UpdateNuageVspDeviceCmd extends BaseAsyncCmd {
 
     public void setApiRetryInterval(Long apiRetryInterval) {
         this.apiRetryInterval = apiRetryInterval;
+    }
+
+    public Boolean getAudit() {
+        return audit;
+    }
+
+    public void setAudit(Boolean audit) {
+        this.audit = audit;
     }
 
     /////////////////////////////////////////////////////

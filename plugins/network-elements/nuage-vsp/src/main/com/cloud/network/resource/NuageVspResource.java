@@ -37,6 +37,8 @@ import javax.naming.ConfigurationException;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import static com.cloud.agent.api.SyncNuageVspCmsIdCommand.SyncType.AUDIT_WITH_CORRECTION;
+
 public class NuageVspResource extends ManagerBase implements ServerResource {
     private static final Logger s_logger = Logger.getLogger(NuageVspResource.class);
 
@@ -251,12 +253,13 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
     }
 
     private Answer executeRequest(SyncNuageVspCmsIdCommand cmd) {
-        if (cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.AUDIT || cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.AUDIT_ONLY) {
-            return auditNuageVspCmsId(cmd);
-        } else if (cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.REGISTER) {
-            return registerNuageVspCmsId(cmd);
-        } else {
-            return unregisterNuageVspCmsId(cmd);
+        switch (cmd.getSyncType()) {
+            case REGISTER:
+                return registerNuageVspCmsId(cmd);
+            case UNREGISTER:
+                return unregisterNuageVspCmsId(cmd);
+            default:
+                return auditNuageVspCmsId(cmd);
         }
     }
 
@@ -275,8 +278,10 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
                 boolean knownCmsId = NuageVspApiUtil.isKnownCmsIdForNuageVsp(nuageVspCmsId, nuageVspAPIParamsAsCmsUser);
                 String registeredNuageVspDevice = getRegisteredNuageVspDevice(cmd.getNuageVspDeviceId(), nuageVspCmsId);
 
-                if (!knownCmsId) {
-                    return new SyncNuageVspCmsIdAnswer(false, registeredNuageVspDevice, SyncNuageVspCmsIdCommand.SyncType.AUDIT);
+                if (!knownCmsId && cmd.getSyncType() == SyncNuageVspCmsIdCommand.SyncType.AUDIT_WITH_CORRECTION) {
+                    nuageVspCmsId = NuageVspApiUtil.registerCmsIdForNuageVsp(nuageVspCmsId, "CloudStack", nuageVspAPIParamsAsCmsUser);
+                    nuageVspAPIParamsAsCmsUser.setNuageVspCmsId(nuageVspCmsId);
+                    return new SyncNuageVspCmsIdAnswer(true, registeredNuageVspDevice, AUDIT_WITH_CORRECTION);
                 }
                 return new SyncNuageVspCmsIdAnswer(true, registeredNuageVspDevice, SyncNuageVspCmsIdCommand.SyncType.AUDIT);
             } catch (NuageVspAPIUtilException e) {
