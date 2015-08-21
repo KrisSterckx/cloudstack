@@ -291,7 +291,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         }
 
         // Audit the registered CMS ID, correct if needed
-        if (command.getAudit() != null && command.getAudit().equals(Boolean.TRUE)) {
+        if (command.getReconnect() != null && command.getReconnect().equals(Boolean.TRUE)) {
             ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
             String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
             SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, nuageVspHost.getDetails(), SyncType.AUDIT_WITH_CORRECTION);
