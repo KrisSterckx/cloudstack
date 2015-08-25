@@ -34,6 +34,8 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.api.commands.ConfigureNuageVspDeviceExperimentalFeatureCmd;
+import com.cloud.api.commands.ListNuageVspDeviceExperimentalFeaturesCmd;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.offerings.NetworkOfferingServiceMapVO;
 import com.cloud.offerings.NetworkOfferingVO;
@@ -206,6 +208,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         cmdList.add(ListNuageVspDevicesCmd.class);
         cmdList.add(IssueNuageVspResourceRequestCmd.class);
         cmdList.add(UpdateNuageVspDeviceCmd.class);
+        cmdList.add(ListNuageVspDeviceExperimentalFeaturesCmd.class);
+        cmdList.add(ConfigureNuageVspDeviceExperimentalFeatureCmd.class);
         return cmdList;
     }
 

@@ -38,4 +38,8 @@ public interface NuageVspDao extends GenericDao<NuageVspDeviceVO, Long> {
      */
     List<NuageVspDeviceVO> listByHost(long hostId);
 
+    void loadDetails(NuageVspDeviceVO nuageVspDevice);
+
+    void saveDetails(NuageVspDeviceVO nuageVspDevice);
+
 }

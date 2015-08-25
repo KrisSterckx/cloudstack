@@ -643,6 +643,8 @@ deleteNuageVspDevice=1
 listNuageVspDevices=1
 updateNuageVspDevice=1
 issueNuageVspResourceRequest=15
+listNuageVspDeviceExperimentalFeatures=1
+configureNuageVspDeviceExperimentalFeature=1
 
 #### host simulator commands
 

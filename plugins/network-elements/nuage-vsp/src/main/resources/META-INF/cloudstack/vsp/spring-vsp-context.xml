@@ -28,6 +28,7 @@
                       >
 
     <bean id="nuageVspDaoImpl" class="com.cloud.network.dao.NuageVspDaoImpl" />
+    <bean id="nuageVspDeviceDetailsDaoImpl" class="com.cloud.network.dao.NuageVspDeviceDetailsDaoImpl" />
     <bean id="NuageVspGuestNetworkGuru" class="com.cloud.network.guru.NuageVspGuestNetworkGuru">
         <property name="name" value="NuageVspGuestNetworkGuru" />
     </bean>
@@ -39,4 +40,5 @@
     </bean>
   <bean id="NuageVspManager" class="com.cloud.network.manager.NuageVspManagerImpl" />
   <bean id="NuageVspSync" class="com.cloud.network.sync.NuageVspSyncImpl" />
+  <bean id="ExperimentalFeatureLoader" class="com.cloud.util.ExperimentalFeatureLoader" />
 </beans>

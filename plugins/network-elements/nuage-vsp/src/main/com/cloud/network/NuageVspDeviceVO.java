@@ -16,6 +16,8 @@
 // under the License.
 package com.cloud.network;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.persistence.Column;
@@ -24,6 +26,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
 import org.apache.cloudstack.api.InternalIdentity;
 
@@ -52,6 +55,12 @@ public class NuageVspDeviceVO implements InternalIdentity {
 
     @Column(name = "device_name")
     private String deviceName;
+
+    // This is a delayed load value.  If the value is null,
+    // then this field has not been loaded yet.
+    // Call nuage vsp dao to load it.
+    @Transient
+    Map<String, String> details;
 
     public NuageVspDeviceVO() {
         this.uuid = UUID.randomUUID().toString();
@@ -92,4 +101,25 @@ public class NuageVspDeviceVO implements InternalIdentity {
         return deviceName;
     }
 
+    public Map<String, String> getDetails() {
+        return details;
+    }
+
+    public String getDetail(String name) {
+        assert (details != null) : "Did you forget to load the details?";
+
+        return details != null ? details.get(name) : null;
+    }
+
+    public void setDetail(String name, String value) {
+        if (details == null) {
+            details = new HashMap<String, String>();
+        }
+
+        details.put(name, value);
+    }
+
+    public void setDetails(Map<String, String> details) {
+        this.details = details;
+    }
 }

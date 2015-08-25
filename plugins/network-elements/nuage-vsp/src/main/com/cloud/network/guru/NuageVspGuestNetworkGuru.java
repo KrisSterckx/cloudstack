@@ -16,6 +16,7 @@ import javax.inject.Inject;
 import com.cloud.network.dao.NetworkDetailVO;
 import com.cloud.network.dao.NetworkDetailsDao;
 import com.cloud.offerings.NetworkOfferingVO;
+import com.cloud.util.ExperimentalFeatureLoader;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.Pair;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
@@ -77,6 +78,8 @@ import com.cloud.vm.ReservationContext;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachineProfile;
 
+import static com.cloud.util.ExperimentalFeatureLoader.ExperimentalFeature.CONCURRENT_VSD_OPS;
+
 @Local(value = NetworkGuru.class)
 public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     private static final Logger s_logger = Logger.getLogger(NuageVspGuestNetworkGuru.class);
@@ -103,6 +106,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     IPAddressDao _ipAddressDao;
     @Inject
     NetworkDetailsDao _networkDetailsDao;
+    @Inject
+    ExperimentalFeatureLoader _expFeatureLoader;
 
     public NuageVspGuestNetworkGuru() {
         super();
@@ -235,11 +240,15 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         String[] enterpriseAndGroupId = NuageVspApiUtil.getOrCreateVSPEnterpriseAndGroup(networksDomain.getName(), networksDomain.getPath(), networksDomain.getUuid(),
                 networksAccount.getAccountName(), networksAccount.getUuid(), nuageVspAPIParamsAsCmsUser);
 
-        long networkId = network.getId();
-        network = _networkDao.acquireInLockTable(network.getId(), 1200);
-        if (network == null) {
-            throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+        boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(physicalNetworkId, CONCURRENT_VSD_OPS);
+        if (useConcurrentVsdOps) {
+            long networkId = network.getId();
+            network = _networkDao.acquireInLockTable(network.getId(), 1200);
+            if (network == null) {
+                throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+            }
         }
+
         try {
             JSONArray jsonArray = new JSONArray();
             jsonArray.put(enterpriseAndGroupId[1]);
@@ -312,7 +321,9 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             }
             saveNetworkDetails(network, entity, enterpriseAndGroupId[0], vsdDomainId, vsdSubnetId);
         } finally {
-            _networkDao.releaseFromLockTable(network.getId());
+            if (useConcurrentVsdOps) {
+                _networkDao.releaseFromLockTable(network.getId());
+            }
         }
     }
 
@@ -331,9 +342,13 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
     @DB
     public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic, boolean forceIpAddress) throws InsufficientVirtualNetworkCapacityException {
-        boolean lockedNetwork = lockNetworkForUserVm(network, vm);
-        if (lockedNetwork) {
-            s_logger.debug("Locked network " + network.getId() + " for creation of user VM " + vm.getInstanceName());
+        boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
+        boolean lockedNetwork = false;
+        if (useConcurrentVsdOps) {
+            lockedNetwork = lockNetworkForUserVm(network, vm);
+            if (lockedNetwork) {
+                s_logger.debug("Locked network " + network.getId() + " for creation of user VM " + vm.getInstanceName());
+            }
         }
 
         try {
@@ -447,9 +462,13 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     @Override
     @DB
     public void deallocate(Network network, NicProfile nic, VirtualMachineProfile vm) {
-        boolean lockedNetwork = lockNetworkForUserVm(network, vm);
-        if (lockedNetwork) {
-            s_logger.debug("Locked network " + network.getId() + " for deallocation of user VM " + vm.getInstanceName());
+        boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
+        boolean lockedNetwork = false;
+        if (useConcurrentVsdOps) {
+            lockedNetwork = lockNetworkForUserVm(network, vm);
+            if (lockedNetwork) {
+                s_logger.debug("Locked network " + network.getId() + " for deallocation of user VM " + vm.getInstanceName());
+            }
         }
 
         try {
@@ -565,11 +584,15 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     @DB
     public boolean trash(Network network, NetworkOffering offering) {
         boolean result = true;
-        long networkId = network.getId();
-        network = _networkDao.acquireInLockTable(networkId, 1200);
-        if (network == null) {
-            throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+        boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
+        if (useConcurrentVsdOps) {
+            long networkId = network.getId();
+            network = _networkDao.acquireInLockTable(networkId, 1200);
+            if (network == null) {
+                throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+            }
         }
+
         try {
             if (s_logger.isDebugEnabled()) {
                 s_logger.debug("Handling trash() call back to delete the network " + network.getName() + " with uuid " + network.getUuid() + " from VSP");
@@ -643,7 +666,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 result = false;
             }
         } finally {
-            if (network != null) {
+            if (network != null && useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(network.getId());
             }
         }

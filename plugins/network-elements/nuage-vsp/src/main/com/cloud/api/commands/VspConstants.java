@@ -13,5 +13,7 @@ public class VspConstants {
     public static final String NUAGE_VSP_API_CHILD_RESOURCE = "childresource";
     public static final String NUAGE_VSP_API_RESOURCE_FILTER = "resourcefilter";
     public static final String NUAGE_VSP_API_RESOURCE_INFO = "resourceinfo";
+    public static final String NUAGE_VSP_API_FEATURE = "feature";
+    public static final String NUAGE_VSP_API_EXPERIMENTAL_FEATURES = "experimentalfeatures";
     public static final String NUAGE_VSP_API_RECONNECT = "reconnect";
 }

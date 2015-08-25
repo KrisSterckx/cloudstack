@@ -23,6 +23,7 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.util.ExperimentalFeatureLoader;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.Pair;
 import net.nuage.vsp.client.common.RequestType;
@@ -105,6 +106,8 @@ import com.cloud.vm.ReservationContext;
 import com.cloud.vm.VirtualMachineProfile;
 import com.cloud.vm.dao.NicDao;
 
+import static com.cloud.util.ExperimentalFeatureLoader.ExperimentalFeature.CONCURRENT_VSD_OPS;
+
 @Local(value = {NetworkElement.class, ConnectivityProvider.class, IpDeployer.class, SourceNatServiceProvider.class, StaticNatServiceProvider.class, FirewallServiceProvider.class,
         DhcpServiceProvider.class})
 public class NuageVspElement extends AdapterBase implements ConnectivityProvider, IpDeployer, SourceNatServiceProvider, StaticNatServiceProvider, FirewallServiceProvider,
@@ -158,6 +161,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
     NuageVspManager _nuageVspManager;
     @Inject
     ConfigurationDao _configDao;
+    @Inject
+    ExperimentalFeatureLoader _expFeatureLoader;
 
     @Override
     public boolean applyIps(Network network, List<? extends PublicIpAddress> ipAddress, Set<Service> service) throws ResourceUnavailableException {
@@ -580,11 +585,15 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             throw new ResourceUnavailableException(e.getMessage(), Domain.class, dc.getId());
         }
 
-        long configId = config.getId();
-        config = _networkDao.acquireInLockTable(config.getId(), 1200);
-        if (config == null) {
-            throw new ConcurrentOperationException("Unable to acquire lock on network " + configId);
+        boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(config.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
+        if (useConcurrentVsdOps) {
+            long configId = config.getId();
+            config = _networkDao.acquireInLockTable(config.getId(), 1200);
+            if (config == null) {
+                throw new ConcurrentOperationException("Unable to acquire lock on network " + configId);
+            }
         }
+
         try {
             //Below is a hack to figure out the domain or l2 domain to which the floating Ip is attached to
             //This is useful to delete the FLoating IP when we can not get VM information from the StaticNat
@@ -691,7 +700,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 }
             }
         } finally {
-            if (config != null) {
+            if (config != null && useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(config.getId());
             }
         }
@@ -717,12 +726,17 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         int random = RandomUtils.nextInt(1000);
         long initialStartTime = System.currentTimeMillis();
         String networkName = network.getName();
-        long networkId = network.getId();
-        network = _networkDao.acquireInLockTable(network.getId(), 1200);
-        if (network == null) {
-            s_logger.error("Network " + networkName + "(" + random + ")  Failed to acquire the lock even after " + (System.currentTimeMillis() - initialStartTime));
-            throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+
+        boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
+        if (useConcurrentVsdOps) {
+            long networkId = network.getId();
+            network = _networkDao.acquireInLockTable(network.getId(), 1200);
+            if (network == null) {
+                s_logger.error("Network " + networkName + "(" + random + ")  Failed to acquire the lock even after " + (System.currentTimeMillis() - initialStartTime));
+                throw new ConcurrentOperationException("Unable to acquire lock on network " + networkId);
+            }
         }
+
         try {
 
             long lockacquiredtime = System.currentTimeMillis();
@@ -858,7 +872,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 throw new ResourceUnavailableException(e1.getMessage(), Network.class, network.getId());
             }
         } finally {
-            if (network != null) {
+            if (network != null && useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(network.getId());
             }
         }
