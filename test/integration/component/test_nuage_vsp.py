@@ -23,7 +23,8 @@ from marvin.cloudstackTestCase import cloudstackTestCase
 from marvin.cloudstackAPI import (listPhysicalNetworks,
                                   listNetworkServiceProviders,
                                   addNetworkServiceProvider,
-                                  addNuageVspDevice)
+                                  addNuageVspDevice,
+                                  destroyVirtualMachine)
 from marvin.lib.utils import (cleanup_resources)
 from marvin.lib.base import (Account,
                              VirtualMachine,
@@ -34,6 +35,8 @@ from marvin.lib.common import (get_domain,
                                get_zone,
                                get_template)
 
+import logging
+
 
 class Services:
 
@@ -41,12 +44,13 @@ class Services:
     """
 
     def __init__(self):
+        print "in __init__"
         self.services = {
             "account": {
                 "email": "cloudstack@cloudmonkey.com",
                 "firstname": "cloudstack",
                 "lastname": "bob",
-                "username": "bobbuilder",
+                "username": "admin",
                 "password": "password",
             },
             "service_offering": {
@@ -61,17 +65,18 @@ class Services:
                 "username": "root",
                 "password": "password",
                 "ssh_port": 22,
-                "hypervisor": 'XenServer',
+                "hypervisor": 'KVM',
                 "privateport": 22,
                 "publicport": 22,
                 "protocol": 'TCP',
             },
             "nuage_vsp_device": {
-                "hostname": '192.168.0.7',
-                "username": 'testusername',
-                "password": 'testpassword',
+                #"hostname": '192.168.0.7',
+                "hostname": '10.31.43.226',
+                "username": 'cloudstackuser1',
+                "password": 'cloudstackuser1',
                 "port": '8443',
-                "apiversion": 'v1_0',
+                "apiversion": 'v3_2',
                 "retrycount": '4',
                 "retryinterval": '60'
             },
@@ -92,12 +97,15 @@ class Services:
                     "SourceNat": 'NuageVsp',
                     "Firewall": 'NuageVsp'
                 },
+                "serviceCapabilityList": {
+                    "SourceNat": {"SupportedSourceNatTypes": "perzone"},
+                }
             },
             "network": {
                 "name": "nuage",
                 "displaytext": "nuage",
             },
-            "ostype": 'CentOS 5.3 (64-bit)',
+            "ostype": 'CentOS 5.5 (64-bit)',
             "sleep": 60,
             "timeout": 10
         }
@@ -107,6 +115,7 @@ class TestNuageVsp(cloudstackTestCase):
 
     @classmethod
     def setUpClass(cls):
+        print "In setup class"
         cls._cleanup = []
         cls.testClient = super(TestNuageVsp, cls).getClsTestClient()
         cls.api_client = cls.testClient.getApiClient()
@@ -125,6 +134,7 @@ class TestNuageVsp(cloudstackTestCase):
         try:
 
             resp = listPhysicalNetworks.listPhysicalNetworksCmd()
+            print "in cls.setupClass- resp: %s" % resp
             resp.zoneid = cls.zone.id
             physical_networks = cls.api_client.listPhysicalNetworks(resp)
             if isinstance(physical_networks, list):
@@ -146,6 +156,7 @@ class TestNuageVsp(cloudstackTestCase):
                 resp_add_device.username = cls.nuage_services["username"]
                 resp_add_device.password = cls.nuage_services["password"]
                 resp_add_device.hostname = cls.nuage_services["hostname"]
+                resp_add_device.port = cls.nuage_services["port"]
                 resp_add_device.apiversion = cls.nuage_services[
                    "apiversion"]
                 resp_add_device.retrycount = cls.nuage_services[
@@ -183,6 +194,7 @@ class TestNuageVsp(cloudstackTestCase):
             raise Exception("Warning: Exception during cleanup : %s" % e)
         return
 
+    @attr( tags=[ "advanced", "component"], required_hardware="false")
     def setUp(self):
         self.apiclient = self.testClient.getApiClient()
         self.dbclient = self.testClient.getDbConnection()
@@ -195,6 +207,7 @@ class TestNuageVsp(cloudstackTestCase):
         self.cleanup = [self.account]
         return
 
+    @attr(tags=["advanced"])
     def tearDown(self):
         try:
             self.debug("Cleaning up the resources")
@@ -204,7 +217,7 @@ class TestNuageVsp(cloudstackTestCase):
             raise Exception("Warning: Exception during cleanup : %s" % e)
         return
 
-    @attr(tags=["invalid"])
+    @attr(tags=["advanced"])
     def test_network_vsp(self):
         """Test nuage Network and VM Creation
         """
@@ -217,7 +230,9 @@ class TestNuageVsp(cloudstackTestCase):
             accountid=self.account.name,
             domainid=self.account.domainid,
             networkofferingid=self.network_offering.id,
-            zoneid=self.zone.id
+            zoneid=self.zone.id,
+            gateway = "10.1.1.1",
+            netmask = '255.255.255.0'
         )
         self.debug("Created network with ID: %s" % self.network.id)
 
