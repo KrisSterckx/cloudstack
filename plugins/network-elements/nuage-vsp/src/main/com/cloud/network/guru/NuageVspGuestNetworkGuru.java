@@ -13,28 +13,23 @@ import java.util.Set;
 import javax.ejb.Local;
 import javax.inject.Inject;
 
-import com.cloud.network.dao.NetworkDetailVO;
-import com.cloud.network.dao.NetworkDetailsDao;
-import com.cloud.offerings.NetworkOfferingVO;
-import com.cloud.util.ExperimentalFeatureLoader;
-import com.cloud.util.NuageVspUtil;
-import com.cloud.utils.Pair;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApi;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
-
 import net.nuage.vsp.client.rest.NuageVspConstants;
+
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 import com.amazonaws.util.json.JSONArray;
+
 import com.cloud.dc.DataCenter;
-import com.cloud.dc.VlanVO;
 import com.cloud.dc.DataCenter.NetworkType;
+import com.cloud.dc.VlanVO;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.deploy.DeployDestination;
 import com.cloud.deploy.DeploymentPlan;
@@ -46,11 +41,11 @@ import com.cloud.exception.InsufficientAddressCapacityException;
 import com.cloud.exception.InsufficientVirtualNetworkCapacityException;
 import com.cloud.host.HostVO;
 import com.cloud.host.dao.HostDao;
+import com.cloud.network.IpAddress;
 import com.cloud.network.Network;
 import com.cloud.network.Network.GuestType;
 import com.cloud.network.Network.Service;
 import com.cloud.network.Network.State;
-import com.cloud.network.IpAddress;
 import com.cloud.network.NetworkProfile;
 import com.cloud.network.Networks;
 import com.cloud.network.NuageVspDeviceVO;
@@ -58,6 +53,8 @@ import com.cloud.network.PhysicalNetwork;
 import com.cloud.network.PhysicalNetwork.IsolationMethod;
 import com.cloud.network.dao.IPAddressDao;
 import com.cloud.network.dao.IPAddressVO;
+import com.cloud.network.dao.NetworkDetailVO;
+import com.cloud.network.dao.NetworkDetailsDao;
 import com.cloud.network.dao.NetworkVO;
 import com.cloud.network.dao.NuageVspDao;
 import com.cloud.network.dao.PhysicalNetworkVO;
@@ -65,11 +62,15 @@ import com.cloud.network.manager.NuageVspManager;
 import com.cloud.network.vpc.Vpc;
 import com.cloud.network.vpc.dao.VpcDao;
 import com.cloud.offering.NetworkOffering;
+import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
 import com.cloud.user.Account;
 import com.cloud.user.AccountVO;
 import com.cloud.user.dao.AccountDao;
+import com.cloud.util.ExperimentalFeatureLoader;
+import com.cloud.util.NuageVspUtil;
+import com.cloud.utils.Pair;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.net.NetUtils;
 import com.cloud.vm.NicProfile;
@@ -229,7 +230,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         boolean forceIpAddress = vm.getType().equals(VirtualMachine.Type.InternalLoadBalancerVm)
                 || offering.getGuestType() == GuestType.Shared;
         // TODO : add if user-selected fixed ip
-        addVmInterfaceOrCreateVMNuageVsp(network, vm, nic, forceIpAddress);
+        addVmInterfaceOrCreateVMNuageVsp(network, vm, nic);
     }
 
     @DB
@@ -341,7 +342,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     }
 
     @DB
-    public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic, boolean forceIpAddress) throws InsufficientVirtualNetworkCapacityException {
+    public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic) throws InsufficientVirtualNetworkCapacityException {
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
         boolean lockedNetwork = false;
         if (useConcurrentVsdOps) {
@@ -389,7 +390,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 if (vm.getType().equals(VirtualMachine.Type.DomainRouter)) {
                     domainRouter = true;
                     vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), network.getBroadcastUri().getPath().substring(1));
-                } else if (forceIpAddress) {
+                } else {
                     vmInterfaces.put(NuageVspAttribute.VM_INTERFACE_IPADDRESS.getAttributeName(), nic.getIp4Address());
                 }
 
