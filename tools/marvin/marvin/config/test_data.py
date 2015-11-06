@@ -208,6 +208,78 @@ test_data = {
                     "StaticNat": 'VirtualRouter',
                 },
     },
+    "nuage_network_offerings": {
+        "isolated": {
+            "name": 'Nuage Network Offering',
+            "displaytext": 'Nuage Network Offering',
+             "guestiptype": 'Isolated',
+            "supportedservices": 'Dhcp,SourceNat,Connectivity,StaticNat,UserData,Firewall',
+            "traffictype": 'GUEST',
+            "availability": 'Optional',
+            "serviceProviderList": {
+                "UserData": 'VirtualRouter',
+                "Dhcp": 'NuageVsp',
+                "Connectivity": 'NuageVsp',
+                "StaticNat": 'NuageVsp',
+                "SourceNat": 'NuageVsp',
+                "Firewall": 'NuageVsp'
+            },
+            "serviceCapabilityList": {
+                "SourceNat": {"SupportedSourceNatTypes": "perzone"}
+            }
+        },
+        "isolated_no_vr": {
+            "name": 'Nuage Network Offering',
+            "displaytext": 'Nuage Network Offering',
+            "guestiptype": 'Isolated',
+            "supportedservices": 'Dhcp,SourceNat,Connectivity,StaticNat,Firewall',
+            "traffictype": 'GUEST',
+            "availability": 'Optional',
+            "serviceProviderList": {
+                "Dhcp": 'NuageVsp',
+                "Connectivity": 'NuageVsp',
+                "StaticNat": 'NuageVsp',
+                "SourceNat": 'NuageVsp',
+                "Firewall": 'NuageVsp'
+            },
+            "serviceCapabilityList": {
+                "SourceNat": {"SupportedSourceNatTypes": "perzone"}
+            }
+        },
+        "isolated_no_sourcenat": {
+            "name": 'Nuage Network Offering',
+            "displaytext": 'Nuage Network Offering',
+            "guestiptype": 'Isolated',
+            "supportedservices": 'Dhcp,Connectivity,Firewall',
+            "traffictype": 'GUEST',
+            "availability": 'Optional',
+            "serviceProviderList": {
+                "Dhcp": 'NuageVsp',
+                "Connectivity": 'NuageVsp',
+                "Firewall": 'NuageVsp'
+            }
+        },
+        "vpc": {
+            "name": 'VPC Network Nuage offering',
+            "displaytext": 'VPC Network off',
+            "guestiptype": 'Isolated',
+            "supportedservices": 'UserData,Dhcp,Dns,SourceNat,NetworkACL,Connectivity',
+            "traffictype": 'GUEST',
+            "useVpc": 'on',
+            "ispersistent": "True",
+            "serviceProviderList": {
+                "Dhcp": "NuageVsp",
+                "Dns": "VpcVirtualRouter",
+                "SourceNat": "NuageVsp",
+                "NetworkACL": "NuageVspVpc",
+                "UserData": "NuageVspVpc",
+                "Connectivity": "NuageVsp"
+            },
+            "serviceCapabilityList": {
+                "SourceNat": {"SupportedSourceNatTypes": "perzone"}
+            }
+        }
+    },
     "nw_off_isolated_persistent": {
         "name": 'Test Nw off isolated persistent',
         "displaytext": 'Test Nw off isolated persistent',
@@ -236,7 +308,7 @@ test_data = {
             "Dns": 'VirtualRouter',
             "SourceNat": 'VirtualRouter',
             "PortForwarding": 'VirtualRouter',
-	    "Lb": "VirtualRouter"
+	         "Lb": "VirtualRouter"
         },
     },
     "isolated_network_offering": {

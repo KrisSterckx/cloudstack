@@ -167,7 +167,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         Collection<String[]> ipAddressRanges = new ArrayList<String[]>();
         String virtualRouterIp = getVirtualRouterIP(network, ipAddressRanges);
 
-        String networkUuid = implemented.getUuid();
+        String networkUuid = network.getUuid();
         String tenantId = context.getDomain().getName() + "-" + context.getAccount().getAccountId();
         String broadcastUriStr = networkUuid + "/" + virtualRouterIp;
         implemented.setBroadcastUri(Networks.BroadcastDomainType.Vsp.toUri(broadcastUriStr));
@@ -200,6 +200,15 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
     @Override
     public NicProfile allocate(Network network, NicProfile nic, VirtualMachineProfile vm) throws InsufficientVirtualNetworkCapacityException, InsufficientAddressCapacityException {
+        if (network.getBroadcastUri() != null) {
+            String vrIp = network.getBroadcastUri().getPath().substring(1);
+            if (vrIp.equals(nic.getRequestedIpv4())) {
+                DataCenter dc = _dcDao.findById(network.getDataCenterId());
+                throw new InsufficientVirtualNetworkCapacityException("Unable to acquire Guest IP address for network " + network, DataCenter.class,
+                        dc.getId());
+            }
+        }
+
         return super.allocate(network, nic, vm);
     }
 
