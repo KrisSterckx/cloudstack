@@ -200,13 +200,17 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
     @Override
     public NicProfile allocate(Network network, NicProfile nic, VirtualMachineProfile vm) throws InsufficientVirtualNetworkCapacityException, InsufficientAddressCapacityException {
+        String vrIp;
         if (network.getBroadcastUri() != null) {
-            String vrIp = network.getBroadcastUri().getPath().substring(1);
-            if (vrIp.equals(nic.getRequestedIpv4())) {
-                DataCenter dc = _dcDao.findById(network.getDataCenterId());
-                throw new InsufficientVirtualNetworkCapacityException("Unable to acquire Guest IP address for network " + network, DataCenter.class,
-                        dc.getId());
-            }
+            vrIp = network.getBroadcastUri().getPath().substring(1);
+        } else {
+            vrIp = getVirtualRouterIP(network, null);
+        }
+
+        if (vm.getType() != VirtualMachine.Type.DomainRouter && nic != null && vrIp.equals(nic.getRequestedIpv4())) {
+            DataCenter dc = _dcDao.findById(network.getDataCenterId());
+            throw new InsufficientVirtualNetworkCapacityException("Unable to acquire Guest IP address for network " + network, DataCenter.class,
+                    dc.getId());
         }
 
         return super.allocate(network, nic, vm);
@@ -753,10 +757,14 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 virtualRouterIp = NetUtils.long2Ip(vip);
                 s_logger.debug("1nd IP is not used as the gateway IP. So, reserving" + virtualRouterIp + " for the Virtual Router IP for " + "Network(" + network.getName() + ")");
             }
-            String[] ipAddressRange = new String[2];
-            ipAddressRange[0] = NetUtils.long2Ip(ipIterator.next());
-            ipAddressRange[1] = NetUtils.getIpRangeEndIpFromCidr(subnet, cidrSize);
-            ipAddressRanges.add(ipAddressRange);
+
+            if (ipAddressRanges != null) {
+                String[] ipAddressRange = new String[2];
+                ipAddressRange[0] = NetUtils.long2Ip(ipIterator.next());
+                ipAddressRange[1] = NetUtils.getIpRangeEndIpFromCidr(subnet, cidrSize);
+                ipAddressRanges.add(ipAddressRange);
+            }
+
             return virtualRouterIp;
         }
 

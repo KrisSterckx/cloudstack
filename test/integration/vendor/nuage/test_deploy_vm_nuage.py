@@ -37,7 +37,7 @@ class TestDeployVm(nuageTestCase):
     def setUp(self):
         self.account = Account.create(
             self.apiclient,
-            self.services["account"],
+            self.testdata["account"],
             admin=True,
             domainid=self.domain.id
         )
@@ -50,15 +50,19 @@ class TestDeployVm(nuageTestCase):
         """Test userdata as POST, size > 2k
         """
 
-        self.network = self.create_Network(self.services["nuage_network_offerings"]["isolated_no_vr"], '10.8.1.1')
+        self.network = self.create_Network(self.testdata["nuage_network_offerings"]["isolated_no_vr"], gateway='10.1.1.1')
 
-        with self.assertRaises(CloudstackAPIException):
-            deployVmResponse = VirtualMachine.create(
+        with self.assertRaises(CloudstackAPIException) as cm:
+            VirtualMachine.create(
                 self.apiclient,
-                services=self.services["virtual_machine"],
+                services=self.testdata["virtual_machine"],
                 accountid=self.account.name,
                 domainid=self.account.domainid,
                 serviceofferingid=self.service_offering.id,
                 networkids=[str(self.network.id)],
-                ipaddress="10.8.1.2"
+                ipaddress="10.1.1.2"
             )
+
+        self.debug(cm.exception.__dict__)
+
+        self.assertTrue("Unable to acquire Guest IP address for network" in cm.exception.errorMsg)
