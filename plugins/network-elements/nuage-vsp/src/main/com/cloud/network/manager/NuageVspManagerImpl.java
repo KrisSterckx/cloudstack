@@ -317,6 +317,15 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             Map<String, Object> hostdetails = new HashMap<String, Object>();
             hostdetails.putAll(latestParamsValue);
 
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(latestParamsValue, null);
+            try {
+                if (!NuageVspApiUtil.checkIfUserInCmsGroup(nuageVspAPIParamsAsCmsUser)) {
+                    throw new CloudRuntimeException("The configured user is not part of the CMS group, failed to update Nuage VSP device");
+                }
+            } catch (NuageVspAPIUtilException e) {
+                throw new CloudRuntimeException(e.getMessage(), e);
+            }
+
             try {
                 resource.configure("", hostdetails);
                 UpdateNuageVspDeviceCommand cmd = new UpdateNuageVspDeviceCommand(latestParamsValue);
