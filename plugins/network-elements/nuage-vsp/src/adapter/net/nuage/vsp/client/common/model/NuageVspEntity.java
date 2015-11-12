@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 public enum NuageVspEntity {
-    ME("me", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.APIKEY),
+    ME("me", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.APIKEY, NuageVspAttribute.ENTERPRISE_ID),
     ENTERPRISE("enterprises", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.ENTERPRISE_NAME, NuageVspAttribute.ENTERPRISE_DESCRIPTION, NuageVspAttribute.ENTERPRISE_PROFILE_ID),
-    GROUP("groups", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.GROUP_NAME, NuageVspAttribute.GROUP_DESCRIPTION),
+    GROUP("groups", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.GROUP_NAME, NuageVspAttribute.GROUP_DESCRIPTION, NuageVspAttribute.GROUP_ROLE),
     USER("users", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.USER_USERNAME, NuageVspAttribute.USER_DESCRIPTION, NuageVspAttribute.USER_EMAIL, NuageVspAttribute.USER_PASSWORD,
             NuageVspAttribute.USER_FIRSTNAME, NuageVspAttribute.USER_LASTNAME),
     L2DOMAIN_TEMPLATE("l2domaintemplates", NuageVspAttribute.ID, NuageVspAttribute.EXTERNAL_ID, NuageVspAttribute.L2DOMAIN_TEMPLATE_NAME, NuageVspAttribute.L2DOMAIN_TEMPLATE_DESCRIPTION),

@@ -16,6 +16,7 @@ public enum NuageVspAttribute {
 
     //Me
     APIKEY("APIKey"),
+    ENTERPRISE_ID("enterpriseID"),
 
     //Enterprise
     ENTERPRISE_NAME("name"),
@@ -26,6 +27,7 @@ public enum NuageVspAttribute {
     GROUP_NAME("name"),
     GROUP_DESCRIPTION("description"),
     GROUP_PRIVATE("private"),
+    GROUP_ROLE("role"),
 
     //User
     USER_USERNAME("userName"),

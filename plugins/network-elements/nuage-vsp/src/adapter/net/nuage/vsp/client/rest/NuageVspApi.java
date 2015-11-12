@@ -20,6 +20,7 @@ import java.util.Set;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSocket;
 
+import com.google.common.collect.Maps;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -426,7 +427,7 @@ public class NuageVspApi {
      *
      * @throws Exception
      */
-    public static void login(String restRelativePath, String[] cmsUserInfo, boolean isCmsUser) throws Exception {
+    public static Map<String, Object> login(String restRelativePath, String[] cmsUserInfo, boolean isCmsUser) throws Exception {
         StringBuffer url = new StringBuffer(restRelativePath);
         url.append("/").append(NuageVspEntity.ME.getEntityType());
 
@@ -437,9 +438,11 @@ public class NuageVspApi {
         if (jsonResponse != null && jsonResponse.size() > 0) {
             Map<String, Object> attributes = jsonResponse.get(0);
             apiKey = ((String)attributes.get("APIKey"));
+            return attributes;
         } else {
             apiKey = "";
         }
+        return Maps.newHashMap();
     }
 
     private static String getJsonString(Object entityDetails) throws JsonGenerationException, JsonMappingException, IOException, JSONException {

@@ -11,6 +11,7 @@ import java.util.Random;
 import java.util.StringTokenizer;
 
 import com.cloud.utils.Pair;
+import com.google.common.collect.Iterables;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
 import net.nuage.vsp.client.common.model.ACLRule.ACLAction;
@@ -18,6 +19,7 @@ import net.nuage.vsp.client.common.model.ACLRule.ACLType;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
+import net.nuage.vsp.client.exception.AuthenticationException;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.exception.NuageVspException;
 
@@ -184,6 +186,40 @@ public class NuageVspApiUtil {
         addUsersInGroup(userGroupId, jsonArray, nuageVspAPIParamsAsCmsUser);
 
         return new String[] {enterpriseId, userGroupId};
+    }
+
+    public static boolean checkIfUserInCmsGroup(NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        try {
+            Map<String, Object> me = NuageVspApi.login(nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.isCmsUser());
+            String systemEnterpriseId = (String) me.get(NuageVspAttribute.ENTERPRISE_ID.getAttributeName());
+            if (StringUtils.isNotBlank(systemEnterpriseId)) {
+                String groupJson = findEntityUsingFilter(NuageVspEntity.ENTERPRISE, systemEnterpriseId, NuageVspEntity.GROUP,
+                        NuageVspAttribute.GROUP_ROLE.getAttributeName(), "CMS", nuageVspAPIParams);
+                Map<String, Object> cmsGroup = Iterables.getOnlyElement(parseJson(groupJson, NuageVspEntity.GROUP), null);
+                if (cmsGroup != null) {
+                    String cmsUsersJson = NuageVspApi.executeRestApi(RequestType.GETALL, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                            NuageVspEntity.GROUP, (String) cmsGroup.get(NuageVspAttribute.ID.getAttributeName()), NuageVspEntity.USER, null, nuageVspAPIParams.getRestRelativePath(),
+                            nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), nuageVspAPIParams.isCmsUser(),
+                            nuageVspAPIParams.getNuageVspCmsId());
+                    List<Map<String, Object>> cmsUsers = parseJson(cmsUsersJson, NuageVspEntity.USER);
+                    for (Map<String, Object> cmsUser : cmsUsers) {
+                        String cmsUsername = (String) cmsUser.get(NuageVspAttribute.USER_USERNAME.getAttributeName());
+                        if (cmsUsername.equals(nuageVspAPIParams.getCmsUserInfo()[1])) {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        } catch (Exception e) {
+            String errorMessage = "Failed to check if the user is part of the CMS group";
+            if (e instanceof AuthenticationException) {
+                errorMessage = "Failed to authenticate on Nuage VSP device. Provided credentials are invalid.";
+            }
+            s_logger.error(errorMessage, e);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
     }
 
     private static String getOrCreatePublicMacroInEnterprise(String vsdEnterpriseId, String sourceCidr, String ruleUuid, NuageVspAPIParams nuageVspAPIParams)
