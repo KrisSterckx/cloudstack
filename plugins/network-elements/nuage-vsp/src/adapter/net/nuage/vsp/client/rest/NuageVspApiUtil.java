@@ -75,6 +75,14 @@ public class NuageVspApiUtil {
             s_logger.debug("Created VM in Nuage. Response from VSP is " + vmJsonString);
             return (String)vmDetails.iterator().next().get(NuageVspAttribute.VM_INTERFACES.getAttributeName());
         } catch (Exception e) {
+            // Rollback created vports
+            for (Map<String, String> vmInterface : vmInterfaceList) {
+                String vportId = vmInterface.get(NuageVspAttribute.VM_INTERFACE_VPORT_ID.getAttributeName());
+                if (StringUtils.isNotBlank(vportId)) {
+                    cleanUpVspStaleObjects(NuageVspEntity.VPORT, vportId, nuageVspAPIParamsAsCmsUser);
+                }
+            }
+
             String errorMessage = "Failed to create VM in VSP using REST API. Json response from VSP REST API is  " + e.getMessage();
             s_logger.error(errorMessage, e);
             throw new NuageVspAPIUtilException(errorMessage);
@@ -100,6 +108,14 @@ public class NuageVspApiUtil {
                 s_logger.debug("Added VM interface to VM in Nuage. Response from VSP is " + vmJsonString);
                 return vmInterface;
             } catch (Exception exception) {
+                // Rollback created vports
+                for (Map<String, String> vmInterface : vmInterfaceList) {
+                    String vportId = vmInterface.get(NuageVspAttribute.VM_INTERFACE_VPORT_ID.getAttributeName());
+                    if (StringUtils.isNotBlank(vportId)) {
+                        cleanUpVspStaleObjects(NuageVspEntity.VPORT, vportId, nuageVspAPIParamsAsCmsUser);
+                    }
+                }
+
                 String errorMessage = "Failed to add VM Interface for the VM with UUID " + vmUuid + " for network " + networkUuid + ".  Json response from VSP REST API is  "
                         + exception.getMessage();
                 s_logger.error(errorMessage, exception);
