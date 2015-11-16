@@ -13,6 +13,7 @@ import java.util.Set;
 import javax.ejb.Local;
 import javax.inject.Inject;
 
+import com.cloud.utils.exception.CloudRuntimeException;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -550,8 +551,10 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     cleanVMVPorts(network, nic, vm, nuageVspAPIParamsAsCmsUser);
                 }
             } catch (NuageVspAPIUtilException e) {
-                s_logger.error("Handling deallocate(). VM " + vm.getInstanceName() + " associated to network " + network.getName() + " with NIC IP " + nic.getIp4Address()
-                        + " is getting destroyed. REST API failed to update the VM state in NuageVsp", e);
+                String errorMessage = "Handling deallocate(). VM " + vm.getInstanceName() + " associated to network " + network.getName() + " with NIC IP " + nic.getIp4Address()
+                        + " is getting destroyed. REST API failed to update the VM state in NuageVsp";
+                s_logger.error(errorMessage, e);
+                throw new CloudRuntimeException(errorMessage, e);
             }
         } finally {
             if (network != null && lockedNetwork) {
