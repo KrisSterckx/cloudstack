@@ -914,6 +914,11 @@ public class MidoNetElement extends AdapterBase implements ConnectivityProvider,
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public boolean applyPFRules(Network network, List<PortForwardingRule> rules) throws ResourceUnavailableException {
         s_logger.debug("applyPFRules called with network " + network.toString());
         if (!midoInNetwork(network)) {

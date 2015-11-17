@@ -319,6 +319,11 @@ public class ContrailElementImpl extends AdapterBase
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public IpDeployer getIpDeployer(Network network) {
         return this;
     }

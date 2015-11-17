@@ -202,4 +202,9 @@ public class BaremetalPxeElement extends AdapterBase implements NetworkElement {
     public boolean verifyServicesCombination(Set<Service> services) {
         return true;
     }
+
+    @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
 }

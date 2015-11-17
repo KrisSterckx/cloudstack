@@ -242,6 +242,11 @@ public class BrocadeVcsElement extends AdapterBase implements NetworkElement, Re
         return true;
     }
 
+    @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
     private static Map<Service, Map<Capability, String>> setCapabilities() {
         Map<Service, Map<Capability, String>> capabilities = new HashMap<Service, Map<Capability, String>>();
 

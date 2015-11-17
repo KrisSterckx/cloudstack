@@ -161,4 +161,9 @@ public class BaremetalUserdataElement extends AdapterBase implements NetworkElem
         return true;
     }
 
+    @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
 }

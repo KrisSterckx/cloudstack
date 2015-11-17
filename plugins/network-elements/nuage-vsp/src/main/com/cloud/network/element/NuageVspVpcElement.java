@@ -137,6 +137,9 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
     @Override
     public boolean implementVpc(Vpc vpc, DeployDestination dest, ReservationContext context) throws ConcurrentOperationException, ResourceUnavailableException,
             InsufficientCapacityException {
+        if (!canHandle(vpc)) {
+            return false;
+        }
 
         Map<VirtualMachineProfile.Param, Object> params = new HashMap<VirtualMachineProfile.Param, Object>(1);
         params.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
@@ -148,6 +151,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
     @Override
     public boolean shutdownVpc(Vpc vpc, ReservationContext context) throws ConcurrentOperationException, ResourceUnavailableException {
+        if (!canHandle(vpc)) {
+            return false;
+        }
+
         s_logger.debug("Handling shutdownVpc() call back to delete the DomainTemplate associated to VPC " + vpc.getName() + " from VSP");
         String vspNetworkId = null;
         // Clean up all the network that was created
@@ -240,6 +247,16 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         return result;
     }
 
+    private boolean canHandle(Vpc vpc) {
+        Long zoneId = vpc.getZoneId();
+        Long guestPhysicalNetworkId = getPhysicalNetworkId(zoneId);
+        if (!_networkModel.isProviderEnabledInPhysicalNetwork(guestPhysicalNetworkId, getProvider().getName())) {
+            s_logger.debug("NuageVspElement is not enabled for physical network " + guestPhysicalNetworkId);
+            return false;
+        }
+        return true;
+    }
+
     private Long getPhysicalNetworkId(Long zoneId) {
         Long guestPhysicalNetworkId = new Long(0);
         List<PhysicalNetworkVO> physicalNetworkList = _physicalNetworkDao.listByZone(zoneId);
@@ -255,6 +272,9 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
     @Override
     public boolean implement(Network network, NetworkOffering offering, DeployDestination dest, ReservationContext context) throws ResourceUnavailableException,
             ConcurrentOperationException, InsufficientCapacityException {
+        if (!canHandle(network, null)) {
+            return false;
+        }
 
         Long vpcId = network.getVpcId();
         if (vpcId == null) {
@@ -325,6 +345,9 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
     @Override
     public boolean prepare(Network network, NicProfile nic, VirtualMachineProfile vm, DeployDestination dest, ReservationContext context) throws ConcurrentOperationException,
             InsufficientCapacityException, ResourceUnavailableException {
+        if (!canHandle(network, null)) {
+            return false;
+        }
 
         Long vpcId = network.getVpcId();
         if (vpcId == null) {
@@ -374,6 +397,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
     @Override
     public boolean shutdown(Network network, ReservationContext context, boolean cleanup) throws ConcurrentOperationException, ResourceUnavailableException {
+        if (!canHandle(network, null)) {
+            return false;
+        }
+
         boolean success = true;
         Long vpcId = network.getVpcId();
         if (vpcId == null) {
@@ -402,6 +429,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
     @Override
     public boolean destroy(Network config, ReservationContext context) throws ConcurrentOperationException, ResourceUnavailableException {
+        if (!canHandle(config, null)) {
+            return false;
+        }
+
         boolean success = true;
         s_logger.debug("Handling destroy() call back to unplug nic from VR for the network " + config.getName() + " with uuid " + config.getUuid());
         Long vpcId = config.getVpcId();
@@ -446,6 +477,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
 
     @Override
     public boolean applyNetworkACLs(Network network, List<? extends NetworkACLItem> rules) throws ResourceUnavailableException {
+        if (!canHandle(network, Service.NetworkACL)) {
+            return false;
+        }
+
         s_logger.debug("Handling applyNetworkACLs for network " + network.getName() + " with " + rules.size() + " Network ACLs");
         return applyACLRules(network, rules, true, null, rules.isEmpty());
     }

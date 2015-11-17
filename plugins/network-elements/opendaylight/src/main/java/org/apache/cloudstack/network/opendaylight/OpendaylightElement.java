@@ -141,6 +141,11 @@ public class OpendaylightElement extends AdapterBase implements ConnectivityProv
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public HostVO createHostVOForConnectedAgent(HostVO host, StartupCommand[] startup) {
         if (!(startup[0] instanceof StartupOpenDaylightControllerCommand)) {
             return null;

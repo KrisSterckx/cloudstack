@@ -119,4 +119,9 @@ public class DnsNotifier extends AdapterBase implements NetworkElement {
         return true;
     }
 
+    @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
 }

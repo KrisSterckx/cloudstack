@@ -133,4 +133,11 @@ public interface NetworkElement extends Adapter {
      * @return true/false
      */
     boolean verifyServicesCombination(Set<Service> services);
+
+    /**
+     * Would return true if the provider can be disabled for a physical network
+     * @param provider
+     * @return
+     */
+    boolean canDisable(PhysicalNetworkServiceProvider provider);
 }

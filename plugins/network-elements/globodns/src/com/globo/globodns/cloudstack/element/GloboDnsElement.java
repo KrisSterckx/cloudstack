@@ -260,6 +260,11 @@ public class GloboDnsElement extends AdapterBase implements ResourceStateAdapter
         return true;
     }
 
+    @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
     ////// Configurable methods /////////////
     @Override
     public String getConfigComponentName() {

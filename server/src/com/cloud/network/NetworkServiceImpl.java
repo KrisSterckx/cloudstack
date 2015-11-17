@@ -3464,8 +3464,12 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
                 break;
             case Disabled:
                 // do we need to do anything for the provider instances before disabling?
-                provider.setState(PhysicalNetworkServiceProvider.State.Disabled);
-                update = true;
+                if (element.canDisable(provider)) {
+                    provider.setState(PhysicalNetworkServiceProvider.State.Disabled);
+                    update = true;
+                } else {
+                    throw new CloudRuntimeException("Provider can not be disabled since it's in use, please clean up the resources first");
+                }
                 break;
             case Shutdown:
                 throw new  InvalidParameterValueException("Updating the provider state to 'Shutdown' is not supported");

@@ -548,6 +548,11 @@ public class SspElement extends AdapterBase implements ConnectivityProvider, Ssp
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public boolean prepareMigration(NicProfile nic, Network network, VirtualMachineProfile vm, DeployDestination dest, ReservationContext context) {
         try {
             prepare(network, nic, vm, dest, context);

@@ -298,6 +298,11 @@ public class InternalLoadBalancerElement extends AdapterBase implements LoadBala
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public IpDeployer getIpDeployer(Network network) {
         return this;
     }

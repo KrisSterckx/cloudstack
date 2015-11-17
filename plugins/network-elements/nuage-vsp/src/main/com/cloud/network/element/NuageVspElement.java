@@ -23,6 +23,7 @@ import javax.ejb.Local;
 import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
+import com.cloud.network.dao.NetworkVO;
 import com.cloud.util.ExperimentalFeatureLoader;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.Pair;
@@ -531,6 +532,20 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         return true;
     }
 
+    @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        Long physicalNetworkId = provider.getPhysicalNetworkId();
+        List<NetworkVO> networkList = _networkDao.listByPhysicalNetwork(physicalNetworkId);
+        for (NetworkVO network : networkList) {
+            if (network.getBroadcastDomainType() == Networks.BroadcastDomainType.Vsp) {
+                if ((network.getState() != Network.State.Shutdown) && (network.getState() != Network.State.Destroy)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     protected boolean canHandle(Network network, Service service) {
 
         if (network.getBroadcastDomainType() != Networks.BroadcastDomainType.Vsp) {
@@ -539,6 +554,11 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
 
         if (!_networkModel.isProviderForNetwork(getProvider(), network.getId())) {
             s_logger.debug("NuageVspElement is not a provider for network " + network.getDisplayText());
+            return false;
+        }
+
+        if (!_networkModel.isProviderEnabledInPhysicalNetwork(network.getPhysicalNetworkId(), getProvider().getName())) {
+            s_logger.debug("NuageVspElement is not enabled for physical network " + network.getPhysicalNetworkId());
             return false;
         }
 
@@ -572,6 +592,9 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
     @Override
     @DB
     public boolean applyStaticNats(Network config, List<? extends StaticNat> rules) throws ResourceUnavailableException {
+        if (!canHandle(config, Service.StaticNat)) {
+            return false;
+        }
 
         //Check if the network is associated to a VPC
         Long vpcId = config.getVpcId();
@@ -715,6 +738,10 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
 
     @Override
     public boolean applyFWRules(Network network, List<? extends FirewallRule> rules) throws ResourceUnavailableException {
+        if (!canHandle(network, Service.Firewall)) {
+            return false;
+        }
+
         s_logger.debug("Handling applyFWRules for network " + network.getName() + " with " + rules.size() + " FWRules");
         return applyACLRules(network, rules, false, rules.size() > 0 ? (((FirewallRule)rules.iterator().next()).getTrafficType().equals(FirewallRule.TrafficType.Ingress) ? true
                 : false) : null, false);
