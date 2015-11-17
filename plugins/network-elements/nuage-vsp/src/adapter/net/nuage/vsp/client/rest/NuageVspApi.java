@@ -509,14 +509,16 @@ public class NuageVspApi {
             if (error.size() > 1) {
                 Integer nuageErrorCode = (Integer)error.get(s_internalErrorCode);
                 String nuageErrorDetails = (String)error.get(s_internalErrorDetails);
+
+                if (type == RequestType.DELETE && nuageErrorCode == s_resourceNotFoundErrorCode) {
+                    return httpResponseContent;
+                }
+
                 //TODO: This is a temporary hack to avoid printing internal error code 2039
                 if (nuageErrorCode == s_duplicateAclPriority) {
                     s_logger.warn(errorMessage);
                 } else if (!(nuageErrorCode == s_noChangeInEntityErrorCode)) {
                     s_logger.error(errorMessage);
-                }
-                if (type == RequestType.DELETE && nuageErrorCode == s_resourceNotFoundErrorCode) {
-                    return httpResponseContent;
                 }
                 throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, nuageErrorCode, nuageErrorDetails, entityType, type);
             }
