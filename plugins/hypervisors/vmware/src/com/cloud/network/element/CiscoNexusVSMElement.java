@@ -142,6 +142,11 @@ public class CiscoNexusVSMElement extends CiscoNexusVSMDeviceManagerImpl impleme
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     @ActionEvent(eventType = EventTypes.EVENT_EXTERNAL_SWITCH_MGMT_DEVICE_DELETE, eventDescription = "deleting VSM", async = true)
     public boolean deleteCiscoNexusVSM(DeleteCiscoNexusVSMCmd cmd) {
         boolean result;

@@ -486,6 +486,11 @@ public class CiscoVnmcElement extends AdapterBase implements SourceNatServicePro
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public boolean destroy(Network network, ReservationContext context) throws ConcurrentOperationException, ResourceUnavailableException {
         return true;
     }

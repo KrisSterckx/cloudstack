@@ -534,6 +534,11 @@ public class JuniperSRXExternalFirewallElement extends ExternalFirewallDeviceMan
     }
 
     @Override
+    public boolean canDisable(PhysicalNetworkServiceProvider provider) {
+        return true;
+    }
+
+    @Override
     public IpDeployer getIpDeployer(Network network) {
         return this;
     }
