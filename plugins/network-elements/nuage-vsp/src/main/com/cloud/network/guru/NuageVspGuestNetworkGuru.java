@@ -359,7 +359,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     public void addVmInterfaceOrCreateVMNuageVsp(Network network, VirtualMachineProfile vm, NicProfile allocatedNic) throws InsufficientVirtualNetworkCapacityException {
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
         boolean lockedNetwork = false;
-        if (useConcurrentVsdOps) {
+        if (!useConcurrentVsdOps) {
             lockedNetwork = lockNetworkForUserVm(network, vm);
             if (lockedNetwork) {
                 s_logger.debug("Locked network " + network.getId() + " for creation of user VM " + vm.getInstanceName());
@@ -479,7 +479,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     public void deallocate(Network network, NicProfile nic, VirtualMachineProfile vm) {
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
         boolean lockedNetwork = false;
-        if (useConcurrentVsdOps) {
+        if (!useConcurrentVsdOps) {
             lockedNetwork = lockNetworkForUserVm(network, vm);
             if (lockedNetwork) {
                 s_logger.debug("Locked network " + network.getId() + " for deallocation of user VM " + vm.getInstanceName());
@@ -602,7 +602,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     public boolean trash(Network network, NetworkOffering offering) {
         boolean result = true;
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
-        if (useConcurrentVsdOps) {
+        if (!useConcurrentVsdOps) {
             long networkId = network.getId();
             network = _networkDao.acquireInLockTable(networkId, 1200);
             if (network == null) {
@@ -683,7 +683,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 result = false;
             }
         } finally {
-            if (network != null && useConcurrentVsdOps) {
+            if (network != null && !useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(network.getId());
             }
         }

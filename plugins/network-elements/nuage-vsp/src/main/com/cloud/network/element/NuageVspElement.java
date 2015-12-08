@@ -609,7 +609,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         }
 
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(config.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
-        if (useConcurrentVsdOps) {
+        if (!useConcurrentVsdOps) {
             long configId = config.getId();
             config = _networkDao.acquireInLockTable(config.getId(), 1200);
             if (config == null) {
@@ -723,7 +723,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 }
             }
         } finally {
-            if (config != null && useConcurrentVsdOps) {
+            if (config != null && !useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(config.getId());
             }
         }
@@ -755,7 +755,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         String networkName = network.getName();
 
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(network.getPhysicalNetworkId(), CONCURRENT_VSD_OPS);
-        if (useConcurrentVsdOps) {
+        if (!useConcurrentVsdOps) {
             long networkId = network.getId();
             network = _networkDao.acquireInLockTable(network.getId(), 1200);
             if (network == null) {
@@ -899,7 +899,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 throw new ResourceUnavailableException(e1.getMessage(), Network.class, network.getId());
             }
         } finally {
-            if (network != null && useConcurrentVsdOps) {
+            if (network != null && !useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(network.getId());
             }
         }
