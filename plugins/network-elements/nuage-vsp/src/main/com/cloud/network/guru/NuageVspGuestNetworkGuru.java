@@ -256,7 +256,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 networksAccount.getAccountName(), networksAccount.getUuid(), nuageVspAPIParamsAsCmsUser);
 
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(physicalNetworkId, CONCURRENT_VSD_OPS);
-        if (useConcurrentVsdOps) {
+        if (!useConcurrentVsdOps) {
             long networkId = network.getId();
             network = _networkDao.acquireInLockTable(network.getId(), 1200);
             if (network == null) {
@@ -336,7 +336,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             }
             saveNetworkDetails(network, entity, enterpriseAndGroupId[0], vsdDomainId, vsdSubnetId);
         } finally {
-            if (useConcurrentVsdOps) {
+            if (!useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(network.getId());
             }
         }
