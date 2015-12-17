@@ -41,6 +41,7 @@ import com.cloud.offerings.NetworkOfferingServiceMapVO;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
+import com.google.common.collect.Lists;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
@@ -620,8 +621,14 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                 String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), _configDao);
                 NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host, nuageVspCmsId);
 
-                List<DomainVO> allDomains = _domainDao.listAll();
-                for (DomainVO domain : allDomains) {
+                List<DomainVO> domains;
+                if (NuageVspMultiTenancy.value() == Boolean.FALSE) {
+                    domains = Lists.newArrayList(_domainDao.findById(Domain.ROOT_DOMAIN));
+                } else {
+                    domains = _domainDao.listAll();
+                }
+
+                for (DomainVO domain : domains) {
                     try {
                         if (add) {
                             NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParamsAsCmsUser);
@@ -656,6 +663,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         _messageBus.subscribe(DomainManager.MESSAGE_ADD_DOMAIN_EVENT, new MessageSubscriber() {
             @Override
             public void onPublishMessage(String senderAddress, String subject, Object args) {
+                if (NuageVspMultiTenancy.value() == Boolean.FALSE) return;
+
                 Long domainId = (Long) args;
                 Domain domain = _domainDao.findById(domainId);
 
@@ -681,6 +690,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         _messageBus.subscribe(DomainManager.MESSAGE_REMOVE_DOMAIN_EVENT, new MessageSubscriber() {
             @Override
             public void onPublishMessage(String senderAddress, String subject, Object args) {
+                if (NuageVspMultiTenancy.value() == Boolean.FALSE) return;
+
                 DomainVO domain = (DomainVO) args;
                 try {
                     List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
@@ -940,6 +951,6 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Override
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspConfigGateway,
-                NuageVspSharedNetworkDomainTemplateName, NuageVspVpcDomainTemplateName, NuageVspIsolatedNetworkDomainTemplateName};
+                NuageVspSharedNetworkDomainTemplateName, NuageVspVpcDomainTemplateName, NuageVspIsolatedNetworkDomainTemplateName, NuageVspMultiTenancy};
     }
 }

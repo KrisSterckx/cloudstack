@@ -246,7 +246,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         try {
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
             nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
-            enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+            enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
         } catch (NuageVspAPIUtilException exception) {
             s_logger.error("Exception occurred while executing implement API. So, FIP clean up could not be execued successfully. Retry restarting the network "
                     + network.getName());
@@ -399,7 +399,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             NetworkOffering networkOffering = _ntwkOfferingDao.findById(network.getNetworkOfferingId());
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
-            String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+            String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
             boolean shared = networkOffering.getGuestType() == Network.GuestType.Shared;
             return usesPreconfiguredDomainTemplate(nuageVspAPIParamsAsCmsUser, enterpriseId, false, shared, network.getUuid());
         } catch (NuageVspAPIUtilException exception) {
@@ -414,7 +414,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             Domain networksDomain = _domainDao.findById(network.getDomainId());
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
-            String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+            String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
             return usesPreconfiguredDomainTemplate(nuageVspAPIParamsAsCmsUser, enterpriseId, true, false, vpc.getUuid());
         } catch (NuageVspAPIUtilException exception) {
             s_logger.error("Exception occurred while executing implement API. So, FIP clean up could not be execued successfully. Retry restarting the network "
@@ -627,7 +627,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             String vpcOrSubnetUuid = null;
             boolean isVpc = false;
             try {
-                enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+                enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
                 Pair<String, String> vsdDomainAndSubnetId;
                 if (vpcId != null) {
                     Vpc vpcObj = _vpcDao.findById(vpcId);
@@ -822,7 +822,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 }
 
                 try {
-                    enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+                    enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
                     Long vpcId = network.getVpcId();
                     if (vpcId != null) {
                         Vpc vpcObj = _vpcDao.findById(vpcId);

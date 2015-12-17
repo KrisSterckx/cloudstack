@@ -1025,17 +1025,6 @@ public class NuageVspApiUtil {
         return errorMessage;
     }
 
-    public static String getEnterprise(String domainUuid, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
-        String enterpriseId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, domainUuid, nuageVspAPIParams);
-        if (StringUtils.isBlank(enterpriseId)) {
-            String errorMessage = "Enterprise corresponding to CS domain " + domainUuid
-                    + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network";
-            s_logger.error(errorMessage);
-            throw new NuageVspAPIUtilException(errorMessage);
-        }
-        return enterpriseId;
-    }
-
     public static Pair<String, String> getIsolatedSubNetwork(String entepriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
         return getIsolatedSubNetwork(entepriseId, networkUuid, nuageVspAPIParams, null);
     }

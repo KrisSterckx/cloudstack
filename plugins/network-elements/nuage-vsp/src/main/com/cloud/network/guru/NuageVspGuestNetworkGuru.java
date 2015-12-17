@@ -252,8 +252,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             Domain networksDomain, AccountVO networksAccount) throws NuageVspAPIUtilException {
         String nuageVspCmdId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(physicalNetworkId, _nuageVspDao, _configDao);
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(physicalNetworkId), nuageVspCmdId);
-        String[] enterpriseAndGroupId = NuageVspApiUtil.getOrCreateVSPEnterpriseAndGroup(networksDomain.getName(), networksDomain.getPath(), networksDomain.getUuid(),
-                networksAccount.getAccountName(), networksAccount.getUuid(), nuageVspAPIParamsAsCmsUser);
+        Pair<String, String> enterpriseAndGroupId = NuageVspUtil.getEnterpriseAndGroupId(networksDomain, _domainDao, networksAccount, _accountDao, nuageVspAPIParamsAsCmsUser);
 
         boolean useConcurrentVsdOps = _expFeatureLoader.isExperimentalFeatureEnabledForPhysicalNetwork(physicalNetworkId, CONCURRENT_VSD_OPS);
         if (!useConcurrentVsdOps) {
@@ -266,7 +265,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
         try {
             JSONArray jsonArray = new JSONArray();
-            jsonArray.put(enterpriseAndGroupId[1]);
+            jsonArray.put(enterpriseAndGroupId.second());
             String vsdDomainId = null, vsdSubnetId = null;
             NuageVspEntity entity = null;
             //this is not owned by project probably this is users network, hopefully the account ID matches user Id
@@ -286,7 +285,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     Vpc vpcObj = _vpcDao.findById(vpcId);
                     String vpcDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
                     entity = NuageVspEntity.SUBNET;
-                    Pair<String, String> vsdDomainAndSubnetId = NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
+                    Pair<String, String> vsdDomainAndSubnetId = NuageVspApiUtil.createVPCOrL3NetworkWithDefaultACLs(enterpriseAndGroupId.first(), network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
                             ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, vpcObj.getName(),
                             vpcObj.getUuid(), vpcDomainTemplateName);
@@ -308,7 +307,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
 
                     String sharedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspSharedNetworkDomainTemplateName.key());
                     entity = NuageVspEntity.SUBNET;
-                    Pair<String, String> vsdDomainAndSubnetId = NuageVspApiUtil.createSharedNetworkWithDefaultACLs(networksDomain.getUuid(), enterpriseAndGroupId[0], network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
+                    Pair<String, String> vsdDomainAndSubnetId = NuageVspApiUtil.createSharedNetworkWithDefaultACLs(networksDomain.getUuid(), enterpriseAndGroupId.first(), network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
                             ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, sharedNetworkDomainTemplateName);
                     vsdDomainId = vsdDomainAndSubnetId.first();
@@ -319,7 +318,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     }
                     String isolatedNetworkDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspIsolatedNetworkDomainTemplateName.key());
                     entity = NuageVspEntity.SUBNET;
-                    Pair<String, String> vsdDomainAndSubnetId = NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
+                    Pair<String, String> vsdDomainAndSubnetId = NuageVspApiUtil.createIsolatedL3NetworkWithDefaultACLs(enterpriseAndGroupId.first(), network.getName(), network.getId(), NetUtils.getCidrNetmask(network.getCidr()),
                             NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), network.getNetworkACLId(), dnsServers, gatewaySystemIds,
                             ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray, nuageVspAPIParamsAsCmsUser, isolatedNetworkDomainTemplateName);
                     vsdDomainId = vsdDomainAndSubnetId.first();
@@ -330,11 +329,11 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                     s_logger.debug("Handling implement() callback for network " + network.getName() + " in Isolated L2 Network use case");
                 }
                 entity = NuageVspEntity.L2DOMAIN;
-                vsdDomainId = NuageVspApiUtil.createIsolatedL2NetworkWithDefaultACLs(enterpriseAndGroupId[0], network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
+                vsdDomainId = NuageVspApiUtil.createIsolatedL2NetworkWithDefaultACLs(enterpriseAndGroupId.first(), network.getName(), NetUtils.getCidrNetmask(network.getCidr()),
                         NetUtils.getCidrSubNet(network.getCidr()), network.getGateway(), ipAddressRanges, offering.getEgressDefaultPolicy(), network.getUuid(), jsonArray,
                         nuageVspAPIParamsAsCmsUser);
             }
-            saveNetworkDetails(network, entity, enterpriseAndGroupId[0], vsdDomainId, vsdSubnetId);
+            saveNetworkDetails(network, entity, enterpriseAndGroupId.first(), vsdDomainId, vsdSubnetId);
         } finally {
             if (!useConcurrentVsdOps) {
                 _networkDao.releaseFromLockTable(network.getId());
@@ -415,8 +414,17 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 String[] vportAndDomainId = null;
 
                 //now execute all the APIs a the network's account user. So reset the nuage API parameters
-                NuageVspAPIParams nuageVspAPIParamsAsNtwkAccUser = NuageVspApiUtil.getNuageVspAPIParameters(networksDomain.getUuid(), networksAccount.getUuid(), false,
-                        getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+                NuageVspAPIParams nuageVspAPIParamsAsNtwkAccUser;
+                if (NuageVspManager.NuageVspMultiTenancy.value() == Boolean.FALSE) {
+                    Domain rootDomain = _domainDao.findById(Domain.ROOT_DOMAIN);
+                    Account systemAccount = _accountDao.findById(Account.ACCOUNT_ID_SYSTEM);
+                    nuageVspAPIParamsAsNtwkAccUser = NuageVspApiUtil.getNuageVspAPIParameters(rootDomain.getUuid(), systemAccount.getUuid(), false,
+                            getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+                } else {
+                    nuageVspAPIParamsAsNtwkAccUser = NuageVspApiUtil.getNuageVspAPIParameters(networksDomain.getUuid(), networksAccount.getUuid(), false,
+                            getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+                }
+
                 if (vmJsonString == null || StringUtils.isBlank(vmJsonString)) {
                     //VM does not exists in VSP. So, create the VM in VSP
                     vmInterfacesDetails = NuageVspApiUtil.createVMInVSP(vm.getInstanceName(), vm.getUuid(), vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser,
@@ -585,7 +593,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
         NicVO nicVo = _nicDao.findById(nic.getId());
         DomainVO networksDomain = _domainDao.findById(network.getDomainId());
         Object[] attachedNetworkDetails = getAttachedNetworkDetails(network, networksDomain, nuageVspAPIParamsAsCmsUser);
-        String vportId = NuageVspApiUtil.findEntityIdByExternalUuid((NuageVspEntity)attachedNetworkDetails[0], (String)attachedNetworkDetails[1], NuageVspEntity.VPORT,
+        String vportId = NuageVspApiUtil.findEntityIdByExternalUuid((NuageVspEntity) attachedNetworkDetails[0], (String) attachedNetworkDetails[1], NuageVspEntity.VPORT,
                 nicVo.getUuid(), nuageVspAPIParamsAsCmsUser);
         if (StringUtils.isNotBlank(vportId)) {
             NuageVspApiUtil.cleanUpVspStaleObjects(NuageVspEntity.VPORT, vportId, nuageVspAPIParamsAsCmsUser);
@@ -622,7 +630,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
                 NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
 
-                String enterpriseId = NuageVspApiUtil.findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, domain.getUuid(), nuageVspAPIParamsAsCmsUser);
+                String enterpriseId = NuageVspUtil.getEnterpriseId(domain, _domainDao, nuageVspAPIParamsAsCmsUser);
                 if (StringUtils.isNotBlank(enterpriseId)) {
                     Long vpcId = network.getVpcId();
                     boolean isVpc = (vpcId != null);
@@ -842,7 +850,7 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             return attachedNetworkDetails.getData();
         }
 
-        String enterpriseId = NuageVspApiUtil.getEnterprise(networksDomain.getUuid(), nuageVspAPIParamsAsCmsUser);
+        String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
         Pair<String, String> vsdDomainAndSubnetId;
         if (isL3Domain) {
             attachedNetworkDetails.entityType = NuageVspEntity.SUBNET;

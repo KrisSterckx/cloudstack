@@ -2,6 +2,15 @@ package com.cloud.util;
 
 import java.util.List;
 
+import com.cloud.domain.Domain;
+import com.cloud.domain.dao.DomainDao;
+import com.cloud.network.manager.NuageVspManager;
+import com.cloud.user.Account;
+import com.cloud.user.dao.AccountDao;
+import com.cloud.utils.Pair;
+import net.nuage.vsp.client.common.model.NuageVspAPIParams;
+import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
+import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import com.cloud.network.NuageVspDeviceVO;
 import com.cloud.network.dao.NuageVspDao;
@@ -67,5 +76,26 @@ public class NuageVspUtil {
             networkDetails.put(NuageVspConstants.NETWORK_METADATA_VSD_SUBNET_ID, vsdSubnetId);
         }
         return networkDetails;
+    }
+
+    public static String getEnterpriseId(Domain domain, DomainDao domainDao, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        if (NuageVspManager.NuageVspMultiTenancy.value() == Boolean.FALSE) {
+            Domain rootDomain = domainDao.findById(Domain.ROOT_DOMAIN);
+            return NuageVspApiUtil.getOrCreateVSPEnterprise(rootDomain.getUuid(), rootDomain.getName(), rootDomain.getPath(), nuageVspAPIParams);
+        }
+        return NuageVspApiUtil.getOrCreateVSPEnterprise(domain.getUuid(), domain.getName(), domain.getPath(), nuageVspAPIParams);
+    }
+
+    public static Pair<String, String> getEnterpriseAndGroupId(Domain domain, DomainDao domainDao, Account account, AccountDao accountDao, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        if (NuageVspManager.NuageVspMultiTenancy.value() == Boolean.FALSE) {
+            Domain rootDomain = domainDao.findById(Domain.ROOT_DOMAIN);
+            Account systemAccount = accountDao.findById(Account.ACCOUNT_ID_SYSTEM);
+            String[] enterpriseAndGroupId = NuageVspApiUtil.getOrCreateVSPEnterpriseAndGroup(rootDomain.getName(), rootDomain.getPath(), rootDomain.getUuid(),
+                    systemAccount.getAccountName(), systemAccount.getUuid(), nuageVspAPIParams);
+            return new Pair<>(enterpriseAndGroupId[0], enterpriseAndGroupId[1]);
+        }
+        String[] enterpriseAndGroupId = NuageVspApiUtil.getOrCreateVSPEnterpriseAndGroup(domain.getName(), domain.getPath(), domain.getUuid(),
+                account.getAccountName(), account.getUuid(), nuageVspAPIParams);
+        return new Pair<>(enterpriseAndGroupId[0], enterpriseAndGroupId[1]);
     }
 }
