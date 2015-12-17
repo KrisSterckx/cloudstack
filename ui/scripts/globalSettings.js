@@ -41,7 +41,12 @@
                                     data: data,
                                     success: function(json) {
                                         var item = json.updateconfigurationresponse.configuration;
-                                        if (item.category == "Usage")
+                                        if (item.name == "nuagevsp.multi.tenancy.enabled")
+                                            cloudStack.dialog.notice({
+                                                message: "Caution! Modifying this value will change the system behavior. " +
+                                                    "Restart of the management server(s) is required."
+                                            });
+                                        else if (item.category == "Usage")
                                             cloudStack.dialog.notice({
                                                 message: _l('message.restart.mgmt.usage.server')
                                             });

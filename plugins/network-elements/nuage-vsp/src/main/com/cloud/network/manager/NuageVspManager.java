@@ -67,7 +67,7 @@ public interface NuageVspManager extends PluggableService {
             "Advanced", "", "Defines if NuageVsp plugin needs to use pre created Domain Template configured in VSP for isolated networks", true, Scope.Global, null);
 
     static final ConfigKey<Boolean> NuageVspMultiTenancy = new ConfigKey<Boolean>(Boolean.class, "nuagevsp.multi.tenancy.enabled",
-            "Advanced", "true", "Defines if NuageVsp plugin needs to use multi-tenancy towards VSP", true, Scope.Global, null);
+            "Advanced", "true", "Defines if NuageVsp plugin needs to use multi-tenancy towards VSP", false, Scope.Global, null);
 
     public NuageVspDeviceVO addNuageVspDevice(AddNuageVspDeviceCmd cmd);
 
