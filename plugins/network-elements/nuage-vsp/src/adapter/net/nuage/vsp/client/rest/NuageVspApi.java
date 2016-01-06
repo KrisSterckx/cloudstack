@@ -645,7 +645,8 @@ public class NuageVspApi {
             retry = setRetryFlag(sleepTime, e, retry);
         } else if (rootCause instanceof NuageVspException) {
             NuageVspException exception = (NuageVspException)rootCause;
-            if (exception.getHttpErrorCode() == 500 || (retryNuageErrorCodes != null && retryNuageErrorCodes.contains(exception.getNuageErrorCode()))) {
+            if (exception.getHttpErrorCode() == 500 || exception.getHttpErrorCode() == 503 ||
+                    (retryNuageErrorCodes != null && retryNuageErrorCodes.contains(exception.getNuageErrorCode()))) {
                 printRetryMessage(attempt, sleepTime, methodName, url, rootCause);
                 retry = setRetryFlag(sleepTime, e, retry);
             }
