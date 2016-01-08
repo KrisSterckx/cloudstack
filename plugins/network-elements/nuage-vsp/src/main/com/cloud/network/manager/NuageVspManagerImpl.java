@@ -673,6 +673,10 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
                     List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
                     for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                        if (_physicalNetworkDao.findById(nuageVspDevice.getPhysicalNetworkId()) == null) {
+                            continue;
+                        }
+
                         HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
                         String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), _configDao);
                         NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host, nuageVspCmsId);
@@ -696,6 +700,10 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                 try {
                     List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listAll();
                     for (NuageVspDeviceVO nuageVspDevice : nuageVspDevices) {
+                        if (_physicalNetworkDao.findById(nuageVspDevice.getPhysicalNetworkId()) == null) {
+                            continue;
+                        }
+
                         HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
                         String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), _configDao);
                         NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(host, nuageVspCmsId);
