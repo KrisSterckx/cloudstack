@@ -385,7 +385,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         params.put("zoneId", String.valueOf(physicalNetwork.getDataCenterId()));
         params.put("physicalNetworkId", String.valueOf(physicalNetwork.getId()));
         params.put("name", "Nuage VSD - " + cmd.getHostName());
-        params.put("hostname", cmd.getHostName());
+        final String hostName = cmd.getHostName();
+        params.put("hostname", hostName);
         params.put("cmsuser", cmd.getUserName());
         String cmsUserPasswordBase64 = org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.encodeBase64(cmd.getPassword().getBytes()));
         params.put("cmsuserpass", cmsUserPasswordBase64);
@@ -429,11 +430,20 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
                         ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
                         String cmsIdConfigValue = cmsIdConfig != null ? cmsIdConfig.getValue() : null;
+
+                        NuageVspDeviceVO matchingNuageVspDevice = findMatchingNuageVspDevice(nuageVspDevice);
+                        if (matchingNuageVspDevice != null) {
+                            String cmsId = NuageVspUtil.findNuageVspDeviceCmsId(matchingNuageVspDevice.getId(), cmsIdConfigValue);
+                            registerNewNuageVspDevice(cmsIdConfig, nuageVspDevice.getId() + ":" + cmsId);
+                        }
+
                         HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
-                        SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, host.getDetails(), SyncType.REGISTER);
-                        SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
-                        if (answer != null && answer.getSuccess()) {
-                            registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
+                        if (matchingNuageVspDevice == null) {
+                            SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfigValue, host.getDetails(), SyncType.REGISTER);
+                            SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+                            if (answer != null && answer.getSuccess()) {
+                                registerNewNuageVspDevice(cmsIdConfig, answer.getRegisteredNuageVspDevice());
+                            }
                         }
 
                         auditDomainsOnVsp(host, true, false);
@@ -498,24 +508,33 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             }
         }
 
+        NuageVspDeviceVO matchingNuageVspDevice = findMatchingNuageVspDevice(nuageVspDevice);
         ConfigurationVO cmsIdConfig = _configDao.findByName("nuagevsp.cms.id");
         HostVO host = findNuageVspHost(nuageVspDevice.getHostId());
-        if (!auditDomainsOnVsp(host, false, true)) {
-            return false;
+        if (matchingNuageVspDevice == null) {
+            if (!auditDomainsOnVsp(host, false, true)) {
+                return false;
+            }
+
+            SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfig.getValue(), host.getDetails(), SyncType.UNREGISTER);
+            SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
+            if (answer == null || !answer.getSuccess()) {
+                return false;
+            }
         }
 
-        SyncNuageVspCmsIdCommand syncCmd = new SyncNuageVspCmsIdCommand(nuageVspDevice.getId(), cmsIdConfig.getValue(), host.getDetails(), SyncType.UNREGISTER);
-        SyncNuageVspCmsIdAnswer answer = (SyncNuageVspCmsIdAnswer) _agentMgr.easySend(nuageVspDevice.getHostId(), syncCmd);
-        if (answer != null && answer.getSuccess()) {
-            String currentValue = cmsIdConfig.getValue();
-            String newValue = currentValue.replace(answer.getRegisteredNuageVspDevice(), "");
-            if (newValue.startsWith(";")) {
-                newValue = newValue.substring(1);
-            }
-            _configDao.update("nuagevsp.cms.id", newValue);
-        } else {
-            return false;
+        String currentValue = cmsIdConfig.getValue();
+        String cmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDevice.getId(), currentValue);
+        String newValue = currentValue.replace(nuageVspDevice.getId() + ":" + cmsId, "");
+        if (newValue.startsWith(";")) {
+            newValue = newValue.substring(1);
+        } else if (newValue.endsWith(";")) {
+            newValue = newValue.substring(0, newValue.length() - 1);
         }
+        while (newValue.contains(";;")) {
+            newValue = newValue.replace(";;", ";");
+        }
+        _configDao.update("nuagevsp.cms.id", newValue);
 
         HostVO nuageHost = _hostDao.findById(nuageVspDevice.getHostId());
         Long hostId = nuageHost.getId();
@@ -526,6 +545,22 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
 
         _nuageVspDao.remove(nuageDeviceId);
         return true;
+    }
+
+    private NuageVspDeviceVO findMatchingNuageVspDevice(NuageVspDeviceVO nuageVspDevice) {
+        List<NuageVspDeviceVO> otherNuageVspDevices = _nuageVspDao.listAll();
+        for (NuageVspDeviceVO otherNuageVspDevice : otherNuageVspDevices) {
+            if (otherNuageVspDevice.getId() == nuageVspDevice.getId()) continue;
+
+            HostVO nuageVspDeviceHost = findNuageVspHost(nuageVspDevice.getHostId());
+            HostVO otherNuageVspDeviceHost = findNuageVspHost(otherNuageVspDevice.getHostId());
+            String nuageVspDeviceHostName = nuageVspDeviceHost.getDetail("hostname");
+            String otherNuageVspDeviceHostName = otherNuageVspDeviceHost.getDetail("hostname");
+            if (otherNuageVspDeviceHostName != null && otherNuageVspDeviceHostName.equals(nuageVspDeviceHostName)) {
+                return otherNuageVspDevice;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -588,6 +623,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     }
 
     private void auditHost(HostVO host) {
+        if (host == null) return;
+
         _hostDao.loadDetails(host);
 
         boolean validateDomains = true;
