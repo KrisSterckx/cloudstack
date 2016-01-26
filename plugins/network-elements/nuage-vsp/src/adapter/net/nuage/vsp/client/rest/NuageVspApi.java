@@ -496,13 +496,14 @@ public class NuageVspApi {
             s_logger.trace("HTTP Request result : HTTP status : " + httpResponse.getStatusLine().getStatusCode() + " : Response " + httpResponseContent);
         }
 
-        if (httpResponse.getStatusLine().getStatusCode() >= 402 && httpResponse.getStatusLine().getStatusCode() <= 599) {
+        int httpStatusCode = httpResponse.getStatusLine().getStatusCode();
+        if (httpStatusCode >= 402 && httpStatusCode <= 599) {
             if (!isJson(httpResponseContent)) {
-                throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, entityType, type);
+                throw new NuageVspException(httpStatusCode, errorMessage, entityType, type);
             }
 
             Map<String, Object> error = parseJsonError(httpResponseContent);
-            if (httpResponse.getStatusLine().getStatusCode() == 404) {
+            if (httpStatusCode == 404) {
                 error.put(s_internalErrorCode, s_resourceNotFoundErrorCode);
             }
 
@@ -520,9 +521,11 @@ public class NuageVspApi {
                 } else if (!(nuageErrorCode == s_noChangeInEntityErrorCode)) {
                     s_logger.error(errorMessage);
                 }
-                throw new NuageVspException(httpResponse.getStatusLine().getStatusCode(), errorMessage, nuageErrorCode, nuageErrorDetails, entityType, type);
+                throw new NuageVspException(httpStatusCode, errorMessage, nuageErrorCode, nuageErrorDetails, entityType, type);
+            } else if (httpStatusCode == 503) {
+                throw new NuageVspException(httpStatusCode, errorMessage, entityType, type);
             }
-        } else if (httpResponse.getStatusLine().getStatusCode() == 401) {
+        } else if (httpStatusCode == 401) {
             s_logger.trace(errorMessage);
             throw new AuthenticationException(errorMessage);
         }
