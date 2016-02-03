@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.GeneralSecurityException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -18,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSocket;
 
 import com.google.common.collect.Maps;
@@ -328,6 +331,17 @@ public class NuageVspApi {
                 s_logger.trace("Total time taken execute HTTP method " + httpMethod.getMethod() + " " + httpMethod.getURI().getPath() + "  " + (System.currentTimeMillis() - time));
             }
             returnJsonString = parseHttpResponse(response, childEntityType != null ? childEntityType : entityType, type);
+        } catch(SSLPeerUnverifiedException e) {
+            // Specific catch for CLOUD-736 : After upgrade of VSD SSL certificate no longer recognized, reinitialize HTTP client
+            try {
+                createHttpClient("https", (new URI(restRelativePath).getPort()));
+                s_logger.debug("Reinitialized HTTP client because of new SSL certificate");
+                throw new NuageVspException(500, 0, "Throwing exception to trigger retry with reinitialized HTTP client");
+            } catch (URISyntaxException e2) {
+                throw new NuageVspException("Incorrect URI: " + url.toString());
+            } catch (GeneralSecurityException e2) {
+                throw new NuageVspException("Failed to setup HTTPS");
+            }
         } finally {
             if (httpMethod != null) {
                 httpMethod.releaseConnection();
