@@ -41,6 +41,7 @@ import com.cloud.offerings.NetworkOfferingServiceMapVO;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import com.google.common.collect.Lists;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -48,7 +49,6 @@ import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
 
@@ -262,9 +262,9 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         //String cmsUserPasswordBase64 = org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.encodeBase64(cmd.getPassword().getBytes()));
         //params.put("cmsuserpass", cmsUserPasswordBase64);
         if (StringUtils.isNotBlank(command.getPassword())) {
-            String encodedNewPassword = org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.encodeBase64(command.getPassword().getBytes()));
+            String encodedNewPassword = DBEncryptionUtil.encrypt(command.getPassword());
             if (!encodedNewPassword.equals(nuageVspHost.getDetails().get("cmsuserpass"))) {
-                paramsTobeUpdated.put("cmsuserpass", org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.encodeBase64(command.getPassword().getBytes())));
+                paramsTobeUpdated.put("cmsuserpass", encodedNewPassword);
             }
         }
         //params.put("port", String.valueOf(port));
@@ -388,8 +388,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         final String hostName = cmd.getHostName();
         params.put("hostname", hostName);
         params.put("cmsuser", cmd.getUserName());
-        String cmsUserPasswordBase64 = org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.encodeBase64(cmd.getPassword().getBytes()));
-        params.put("cmsuserpass", cmsUserPasswordBase64);
+        params.put("cmsuserpass", DBEncryptionUtil.encrypt(cmd.getPassword()));
+
         int port = cmd.getPort();
         if (0 == port) {
             // While the default VSD port is 8443, clustering via HAProxy will go over port 443 (CLOUD-58)

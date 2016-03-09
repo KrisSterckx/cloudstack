@@ -27,6 +27,7 @@ import com.cloud.network.Network;
 import com.cloud.network.NuageVspDeviceVO;
 import com.cloud.network.dao.NuageVspDao;
 import com.cloud.util.NuageVspUtil;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 import com.cloud.offering.NetworkOffering;
 import net.nuage.vsp.client.rest.NuageVspApi;
@@ -45,7 +46,6 @@ import org.apache.cloudstack.api.response.PhysicalNetworkResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -201,7 +201,7 @@ public class IssueNuageVspResourceRequestCmd extends BaseCmd {
                     HostVO nuageVspHost = _hostDao.findById(config.getHostId());
                     _hostDao.loadDetails(nuageVspHost);
                     String restRelativePath = new StringBuffer().append("https://").append(nuageVspHost.getDetail("hostname")).append(":").append(nuageVspHost.getDetail("port")).append(nuageVspHost.getDetail("apirelativepath")).toString();
-                    String[] cmsUserInfo = new String[]{NuageVspConstants.CMS_USER_ENTEPRISE_NAME, nuageVspHost.getDetail("cmsuser"), org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.decodeBase64(nuageVspHost.getDetail("cmsuserpass")))};
+                    String[] cmsUserInfo = new String[]{NuageVspConstants.CMS_USER_ENTEPRISE_NAME, nuageVspHost.getDetail("cmsuser"), DBEncryptionUtil.decrypt(nuageVspHost.getDetail("cmsuserpass"))};
                     int noofRetry = Integer.parseInt(nuageVspHost.getDetail("retrycount"));
                     long retryInterval = Long.parseLong(nuageVspHost.getDetail("retryinterval"));
 

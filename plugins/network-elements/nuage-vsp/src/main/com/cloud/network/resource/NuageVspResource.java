@@ -19,6 +19,7 @@ import com.cloud.host.Host;
 
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.StringUtils;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApi;
@@ -29,7 +30,6 @@ import com.cloud.resource.ServerResource;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.exception.CloudRuntimeException;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 
 import javax.naming.ConfigurationException;
@@ -79,8 +79,8 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
             throw new ConfigurationException("Unable to find CMS username");
         }
 
-        String cmsUserPassBase64 = (String)params.get("cmsuserpass");
-        if (cmsUserPassBase64 == null) {
+        String cmsUserPass = (String)params.get("cmsuserpass");
+        if (cmsUserPass == null) {
             throw new ConfigurationException("Unable to find CMS password");
         }
 
@@ -129,8 +129,7 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
 
         _relativePath = new StringBuffer().append("https://").append(hostname).append(":").append(port).append(apiRelativePath).toString();
 
-        String cmsUserPass = org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.decodeBase64(cmsUserPassBase64));
-        _cmsUserInfo = new String[] {NuageVspConstants.CMS_USER_ENTEPRISE_NAME, cmsUser, cmsUserPass};
+        _cmsUserInfo = new String[] {NuageVspConstants.CMS_USER_ENTEPRISE_NAME, cmsUser, DBEncryptionUtil.decrypt(cmsUserPass)};
 
         try {
             NuageVspApi.createHttpClient("https", Integer.valueOf(port));
@@ -244,7 +243,7 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
             _relativePath = new StringBuffer().append("https://").append(cmd.getParametersToBeUpdated().get("hostname")).append(":")
                     .append(cmd.getParametersToBeUpdated().get("port")).append(cmd.getParametersToBeUpdated().get("apirelativepath")).toString();
 
-            String cmsUserPass = org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.decodeBase64(cmd.getParametersToBeUpdated().get("cmsuserpass")));
+            String cmsUserPass = DBEncryptionUtil.decrypt(cmd.getParametersToBeUpdated().get("cmsuserpass"));
             _cmsUserInfo = new String[] {NuageVspConstants.CMS_USER_ENTEPRISE_NAME, cmd.getParametersToBeUpdated().get("cmsuser"), cmsUserPass};
             return new UpdateNuageVspDeviceAnswer(cmd, true, "Updated the parameters in the NuageVsp resource");
         } catch (Exception e) {

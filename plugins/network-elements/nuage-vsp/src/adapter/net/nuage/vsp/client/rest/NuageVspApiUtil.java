@@ -11,6 +11,7 @@ import java.util.Random;
 import java.util.StringTokenizer;
 
 import com.cloud.utils.Pair;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import com.google.common.collect.Iterables;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
@@ -24,7 +25,6 @@ import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.exception.NuageVspException;
 
 import org.apache.cloudstack.api.InternalIdentity;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
@@ -1669,7 +1669,7 @@ public class NuageVspApiUtil {
         nuageVspAPIParams.setRestRelativePath(new StringBuffer().append("https://").append(hostDetails.get("hostname")).append(":").append(hostDetails.get("port"))
                 .append(hostDetails.get("apirelativepath")).toString());
         nuageVspAPIParams.setCmsUserInfo(new String[] {NuageVspConstants.CMS_USER_ENTEPRISE_NAME, hostDetails.get("cmsuser"),
-                org.apache.commons.codec.binary.StringUtils.newStringUtf8(Base64.decodeBase64(hostDetails.get("cmsuserpass")))});
+                DBEncryptionUtil.decrypt(hostDetails.get("cmsuserpass"))});
         nuageVspAPIParams.setNoofRetry(Integer.parseInt(hostDetails.get("retrycount")));
         nuageVspAPIParams.setRetryInterval(Long.parseLong(hostDetails.get("retryinterval")));
 
