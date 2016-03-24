@@ -16,4 +16,5 @@ public class VspConstants {
     public static final String NUAGE_VSP_API_FEATURE = "feature";
     public static final String NUAGE_VSP_API_EXPERIMENTAL_FEATURES = "experimentalfeatures";
     public static final String NUAGE_VSP_API_RECONNECT = "reconnect";
+    public static final String NUAGE_VSP_CMS_ID = "cmsid";
 }

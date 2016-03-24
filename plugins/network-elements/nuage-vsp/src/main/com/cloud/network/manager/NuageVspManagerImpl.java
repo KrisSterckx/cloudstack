@@ -478,6 +478,10 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         response.setApiVersion(apiRelativePath.substring(apiRelativePath.lastIndexOf('/') + 1));
         response.setApiRetryCount(Integer.parseInt(nuageVspHost.getDetail("retrycount")));
         response.setApiRetryInterval(Long.parseLong(nuageVspHost.getDetail("retryinterval")));
+
+        String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsId(nuageVspDeviceVO.getId(), _configDao);
+        response.setCmsId(nuageVspCmsId);
+
         response.setObjectName("nuagevspdevice");
         return response;
     }
