@@ -336,7 +336,7 @@ public class NuageVspApi {
             try {
                 createHttpClient("https", (new URI(restRelativePath).getPort()));
                 s_logger.debug("Reinitialized HTTP client because of new SSL certificate");
-                throw new NuageVspException(500, 0, "Throwing exception to trigger retry with reinitialized HTTP client");
+                throw new NuageVspException(500, 0, "Throwing exception to trigger retry with reinitialized HTTP client", e);
             } catch (URISyntaxException e2) {
                 throw new NuageVspException("Incorrect URI: " + url.toString());
             } catch (GeneralSecurityException e2) {
@@ -697,7 +697,7 @@ public class NuageVspApi {
         @Override
         protected void prepareSocket(final SSLSocket socket) throws IOException {
             // Strip "SSLv3" from the current enabled protocols.
-            String[] protocols = socket.getEnabledProtocols();
+            String[] protocols = socket.getSupportedProtocols();
             Set<String> set = new HashSet<String>();
             for (String s : protocols) {
                 if (s.equals("SSLv3") || s.equals("SSLv2Hello")) {

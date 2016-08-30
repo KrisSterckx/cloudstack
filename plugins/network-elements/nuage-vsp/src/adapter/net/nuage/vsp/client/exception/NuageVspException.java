@@ -21,6 +21,12 @@ public class NuageVspException extends Exception {
         this.nuageErrorCode = nuageErrorCode;
     }
 
+    public NuageVspException(int httpErrorCode, int nuageErrorCode, String errorMessage, Throwable cause) {
+        super(errorMessage, cause);
+        this.httpErrorCode = httpErrorCode;
+        this.nuageErrorCode = nuageErrorCode;
+    }
+
     public NuageVspException(int httpErrorCode, String errorMessage, int nuageErrorCode, String nuageErrorDetails, String entityType, RequestType requestType) {
         super(errorMessage);
         this.httpErrorCode = httpErrorCode;

@@ -85,7 +85,7 @@ public class NuageVspConstants {
     public static final String NETWORK_METADATA_VSD_DOMAIN_ID = "vsdDomainId";
     public static final String NETWORK_METADATA_VSD_SUBNET_ID = "vsdSubnetId";
 
-    public static final String CURRENT_API_VERSION = "v3_2";
+    public static final String CURRENT_API_VERSION = NuageVspApiVersion.CURRENT.toString();;
 
     public static final Integer DEFAULT_API_RETRY_COUNT = 4;
     public static final Long DEFAULT_API_RETRY_INTERVAL = 60L;

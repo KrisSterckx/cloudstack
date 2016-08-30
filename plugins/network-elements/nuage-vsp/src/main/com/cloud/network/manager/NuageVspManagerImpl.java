@@ -36,17 +36,18 @@ import javax.naming.ConfigurationException;
 
 import com.cloud.api.commands.ConfigureNuageVspDeviceExperimentalFeatureCmd;
 import com.cloud.api.commands.ListNuageVspDeviceExperimentalFeaturesCmd;
+import com.cloud.network.upgrade.NuageUpgrade;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.offerings.NetworkOfferingServiceMapVO;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
-import com.cloud.utils.crypt.DBEncryptionUtil;
 import com.google.common.collect.Lists;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
+import net.nuage.vsp.client.rest.NuageVspApiVersion;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -129,6 +130,7 @@ import com.cloud.user.DomainManager;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.StringUtils;
 import com.cloud.utils.component.ManagerBase;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.db.Transaction;
 import com.cloud.utils.db.TransactionCallback;
@@ -201,6 +203,9 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Inject
     MessageBus _messageBus;
 
+    @Inject
+    NuageUpgrade nuageUpgrade;
+
     @Override
     public List<Class<?>> getCommands() {
         List<Class<?>> cmdList = new ArrayList<Class<?>>();
@@ -217,7 +222,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Override
     public NuageVspDeviceVO updateNuageVspDevice(UpdateNuageVspDeviceCmd command) {
 
-        ServerResource resource = new NuageVspResource();
+        NuageVspResource resource = new NuageVspResource();
         final String deviceName = Network.Provider.NuageVsp.getName();
         ExternalNetworkDeviceManager.NetworkDevice networkDevice = ExternalNetworkDeviceManager.NetworkDevice.getNetworkDevice(deviceName);
         final Long physicalNetworkId = command.getPhysicalNetworkId();
@@ -274,12 +279,18 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         }
         //params.put("apirelativepath", "/nuage/api/" + cmd.getApiVersion());
         String apiVersion = Objects.firstNonNull(command.getApiVersion(), NuageVspConstants.CURRENT_API_VERSION);
+
         if (!NuageVspApiUtil.isSupportedApiVersion(apiVersion)) {
             throw new CloudRuntimeException("Incorrect API version: Nuage plugin only supports " + NuageVspConstants.CURRENT_API_VERSION);
         }
 
+        boolean requiresUpgrade = false;
+
+        NuageVspApiVersion nuageVspApiVersion = new NuageVspApiVersion(apiVersion);
+
         String apiRelativePath = "/nuage/api/" + apiVersion;
         if (!apiRelativePath.equals(nuageVspHost.getDetails().get("apirelativepath"))) {
+            requiresUpgrade = nuageVspApiVersion.equals(NuageVspApiVersion.CURRENT);
             paramsTobeUpdated.put("apirelativepath", apiRelativePath);
             paramsTobeUpdated.put("apiversion", apiVersion);
         }
@@ -328,7 +339,12 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
             }
 
             try {
-                resource.configure("", hostdetails);
+                NuageVspAPIParams nuageVspHostParams = resource.validate(hostdetails);
+
+                if (requiresUpgrade) {
+                    nuageUpgrade.upgrade(nuageVspHostParams);
+                }
+
                 UpdateNuageVspDeviceCommand cmd = new UpdateNuageVspDeviceCommand(latestParamsValue);
                 UpdateNuageVspDeviceAnswer answer = (UpdateNuageVspDeviceAnswer)_agentMgr.easySend(nuageVspHost.getId(), cmd);
                 if (answer == null || !answer.getResult()) {
@@ -446,7 +462,9 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
                             }
                         }
 
-                        auditDomainsOnVsp(host, true, false);
+                        if (!auditDomainsOnVsp(host, true, false)) {
+                            throw new CloudRuntimeException("Failed to create CS domains on VSP");
+                        }
 
                         return nuageVspDevice;
                     }

@@ -10,9 +10,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.StringTokenizer;
 
-import com.cloud.utils.Pair;
-import com.cloud.utils.crypt.DBEncryptionUtil;
-import com.google.common.collect.Iterables;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
 import net.nuage.vsp.client.common.model.ACLRule.ACLAction;
@@ -24,7 +21,6 @@ import net.nuage.vsp.client.exception.AuthenticationException;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.exception.NuageVspException;
 
-import org.apache.cloudstack.api.InternalIdentity;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
@@ -33,12 +29,19 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 import com.amazonaws.util.json.JSONArray;
+import com.google.common.collect.Iterables;
+
+import org.apache.cloudstack.api.InternalIdentity;
 import com.cloud.host.HostVO;
 import com.cloud.network.rules.FirewallRule;
 import com.cloud.network.vpc.NetworkACLItem;
 import com.cloud.network.vpc.NetworkACLItem.Action;
 import com.cloud.network.vpc.NetworkACLItemVO;
+import com.cloud.utils.Pair;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import com.cloud.utils.net.NetUtils;
+
+import javax.net.ssl.SSLPeerUnverifiedException;
 
 public class NuageVspApiUtil {
 
@@ -229,9 +232,11 @@ public class NuageVspApiUtil {
 
             return false;
         } catch (Exception e) {
-            String errorMessage = "Failed to check if the user is part of the CMS group";
+            String errorMessage = "Failed to check if the user is part of the CMS group.";
             if (e instanceof AuthenticationException) {
                 errorMessage = "Failed to authenticate on Nuage VSP device. Provided credentials are invalid.";
+            } else if (e.getCause() != null && e.getCause() instanceof SSLPeerUnverifiedException) {
+                errorMessage += " There are issues with the SSL certificate.";
             }
             s_logger.error(errorMessage, e);
             throw new NuageVspAPIUtilException(errorMessage);
@@ -1026,10 +1031,19 @@ public class NuageVspApiUtil {
     }
 
     public static Pair<String, String> getIsolatedSubNetwork(String entepriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
-        return getIsolatedSubNetwork(entepriseId, networkUuid, nuageVspAPIParams, null);
+        return getIsolatedSubNetwork(true, entepriseId, networkUuid, nuageVspAPIParams, null);
+    }
+
+    public static Pair<String, String> getIsolatedSubNetwork(boolean throwExceptionWhenNotFound, String entepriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        return getIsolatedSubNetwork(throwExceptionWhenNotFound, entepriseId, networkUuid, nuageVspAPIParams, null);
     }
 
     public static Pair<String, String> getIsolatedSubNetwork(String enterpriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams, String vpcUuid) throws NuageVspAPIUtilException {
+        return getIsolatedSubNetwork(true, enterpriseId, networkUuid, nuageVspAPIParams, vpcUuid);
+    }
+
+    public static Pair<String, String> getIsolatedSubNetwork(boolean throwExceptionWhenNotFound, String enterpriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams,
+                                                             String vpcUuid) throws NuageVspAPIUtilException {
 
         String domainId = null;
         String zoneId = null;
@@ -1045,17 +1059,26 @@ public class NuageVspApiUtil {
 
         //Check if L3 DomainTemplate exists
         try {
-            domainId = getIsolatedDomain(enterpriseId, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, nuageVspAPIParams);
+            domainId = getIsolatedDomain(throwExceptionWhenNotFound, enterpriseId, vpcOrSubnetUuid, NuageVspEntity.DOMAIN, nuageVspAPIParams);
+            if (domainId == null) {
+                return null;
+            }
 
             zoneId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.ZONE, vpcOrSubnetUuid, nuageVspAPIParams);
             if (StringUtils.isBlank(zoneId)) {
-                throw new NuageVspAPIUtilException("Zone corresponding to network " + vpcOrSubnetUuid
-                        + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+                if (throwExceptionWhenNotFound) {
+                    throw new NuageVspAPIUtilException("Zone corresponding to network " + vpcOrSubnetUuid
+                            + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+                }
+                return null;
             }
             subnetId = findEntityIdByExternalUuid(NuageVspEntity.ZONE, zoneId, NuageVspEntity.SUBNET, networkUuid, nuageVspAPIParams);
             if (StringUtils.isBlank(subnetId)) {
-                throw new NuageVspAPIUtilException("Subnet corresponding to network " + networkUuid
-                        + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+                if (throwExceptionWhenNotFound) {
+                    throw new NuageVspAPIUtilException("Subnet corresponding to network " + networkUuid
+                            + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+                }
+                return null;
             }
             return new Pair<String, String>(domainId, subnetId);
         } catch (Exception exception) {
@@ -1065,13 +1088,20 @@ public class NuageVspApiUtil {
         }
     }
 
-    public static String getIsolatedDomain(String entepriseId, String vpcOrSubnetUuid, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams)
+    public static String getIsolatedDomain(String enterpriseId, String vpcOrSubnetUuid, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        return getIsolatedDomain(true, enterpriseId, vpcOrSubnetUuid, attachedNetworkType, nuageVspAPIParams);
+    }
+
+    public static String getIsolatedDomain(boolean throwExceptionWhenNotFound, String entepriseId, String vpcOrSubnetUuid, NuageVspEntity attachedNetworkType, NuageVspAPIParams nuageVspAPIParams)
             throws NuageVspAPIUtilException {
         String domainId;
         domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, entepriseId, attachedNetworkType, vpcOrSubnetUuid, nuageVspAPIParams);
         if (StringUtils.isBlank(domainId)) {
-            throw new NuageVspAPIUtilException(attachedNetworkType + " corresponding to network " + vpcOrSubnetUuid
-                    + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+            if (throwExceptionWhenNotFound) {
+                throw new NuageVspAPIUtilException(attachedNetworkType + " corresponding to network " + vpcOrSubnetUuid
+                        + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
+            }
+            return null;
         }
         return domainId;
     }
@@ -1676,10 +1706,9 @@ public class NuageVspApiUtil {
         if (!executeAsCmsUser) {
             //Hack to remove "-" from UserUuId. This is because VSP limits the username to less than 32 character
             //and CS uuid has 32 characters
-            nuageVspAPIParams.setCurrentUserName(userUuid.replaceAll("-", ""));
-            nuageVspAPIParams.setCurrentUserEnterpriseName(domainUuid);
+            nuageVspAPIParams.setCurrentUser(domainUuid, userUuid.replaceAll("-", ""));
         }
-        nuageVspAPIParams.setCmsUser(executeAsCmsUser);
+
         nuageVspAPIParams.setNuageVspCmsId(nuageVspCmsId);
         return nuageVspAPIParams;
     }
@@ -2179,11 +2208,15 @@ public class NuageVspApiUtil {
     }
 
     public static boolean isSupportedApiVersion(String version) {
-        return isSupportedApiVersion(new NuageVspApiVersion(version));
+        try {
+            return isSupportedApiVersion(new NuageVspApiVersion(version));
+        } catch(IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public static boolean isSupportedApiVersion(NuageVspApiVersion version) {
-        return version.compareTo(NuageVspApiVersion.V3_2) >= 0;
+        return version.isSupported();
     }
 
     public static boolean isKnownCmsIdForNuageVsp(String cmsId, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {

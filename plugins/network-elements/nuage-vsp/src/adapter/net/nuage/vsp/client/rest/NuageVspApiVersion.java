@@ -12,6 +12,8 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 public class NuageVspApiVersion implements Comparable<NuageVspApiVersion> {
     private static final Pattern versionRegEx = Pattern.compile("v(\\d+)_(\\d+)");
     public static final NuageVspApiVersion V3_2 = new NuageVspApiVersion(3, 2);
+    public static final NuageVspApiVersion V4_0 = new NuageVspApiVersion(4, 0);
+    public static final NuageVspApiVersion CURRENT = V4_0;
 
     private Integer major;
     private Integer minor;
@@ -54,5 +56,9 @@ public class NuageVspApiVersion implements Comparable<NuageVspApiVersion> {
     @Override
     public String toString() {
         return String.format("v%d_%d", major, minor);
+    }
+
+    public boolean isSupported() {
+        return CURRENT.equals(this);
     }
 }

@@ -41,4 +41,5 @@
   <bean id="NuageVspManager" class="com.cloud.network.manager.NuageVspManagerImpl" />
   <bean id="NuageVspSync" class="com.cloud.network.sync.NuageVspSyncImpl" />
   <bean id="ExperimentalFeatureLoader" class="com.cloud.util.ExperimentalFeatureLoader" />
+    <bean id="nuageUpgradeTo40" class="com.cloud.network.upgrade.NuageApi32To40Upgrade" />
 </beans>

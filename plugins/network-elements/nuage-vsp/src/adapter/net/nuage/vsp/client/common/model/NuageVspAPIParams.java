@@ -1,8 +1,8 @@
 package net.nuage.vsp.client.common.model;
 
+import com.cloud.utils.StringUtils;
 
-public class NuageVspAPIParams {
-
+public class NuageVspAPIParams implements Cloneable {
     String restRelativePath = null;
 
     String[] cmsUserInfo = null;
@@ -13,18 +13,57 @@ public class NuageVspAPIParams {
 
     String currentUserName;
 
-    String cloudstackDomainName;
+    String currentUserEnterpriseName;
 
     boolean isCmsUser;
 
     String nuageVspCmsId;
 
-    public boolean isCmsUser() {
-        return isCmsUser;
+    public NuageVspAPIParams() {
     }
 
-    public void setCmsUser(boolean isCmsUser) {
-        this.isCmsUser = isCmsUser;
+    public NuageVspAPIParams(String restRelativePath, int noofRetry, long retryInterval, String nuageVspCmsId) {
+        this.restRelativePath = restRelativePath;
+        this.noofRetry = noofRetry;
+        this.retryInterval = retryInterval;
+        this.nuageVspCmsId = nuageVspCmsId;
+        this.isCmsUser = true;
+    }
+
+    public NuageVspAPIParams(String restRelativePath, int noofRetry, long retryInterval, String nuageVspCmsId, String currentUserName, String currentUserEnterpriseName) {
+        this.restRelativePath = restRelativePath;
+        this.noofRetry = noofRetry;
+        this.retryInterval = retryInterval;
+        this.currentUserName = currentUserName;
+        this.currentUserEnterpriseName = currentUserEnterpriseName;
+        this.nuageVspCmsId = nuageVspCmsId;
+        this.isCmsUser = false;
+    }
+
+    public void setCurrentUser(String enterpriseName, String currentUserName) {
+        assert (StringUtils.isNotBlank(enterpriseName));
+        assert (StringUtils.isNotBlank(currentUserName));
+
+        this.currentUserEnterpriseName = enterpriseName;
+        this.currentUserName = currentUserName;
+    }
+
+    public void clearCurrentUser() {
+        this.currentUserEnterpriseName = null;
+        this.currentUserName = null;
+    }
+
+    @Override
+    public NuageVspAPIParams clone() {
+        try {
+            return (NuageVspAPIParams) super.clone();
+        } catch (CloneNotSupportedException e) {
+            return null;
+        }
+    }
+
+    public boolean isCmsUser() {
+        return currentUserName == null;
     }
 
     public String getRestRelativePath() {
@@ -63,16 +102,8 @@ public class NuageVspAPIParams {
         return currentUserName;
     }
 
-    public void setCurrentUserName(String currentUserName) {
-        this.currentUserName = currentUserName;
-    }
-
     public String getCloudstackDomainName() {
-        return cloudstackDomainName;
-    }
-
-    public void setCurrentUserEnterpriseName(String cloudstackDomainName) {
-        this.cloudstackDomainName = cloudstackDomainName;
+        return currentUserEnterpriseName;
     }
 
     public String getNuageVspCmsId() {

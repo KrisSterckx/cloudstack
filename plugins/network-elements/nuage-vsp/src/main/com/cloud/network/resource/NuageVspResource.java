@@ -1,5 +1,19 @@
 package com.cloud.network.resource;
 
+import java.util.Map;
+
+import javax.naming.ConfigurationException;
+
+import net.nuage.vsp.client.common.model.NuageVspAPIParams;
+import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
+import net.nuage.vsp.client.rest.NuageVspApi;
+import net.nuage.vsp.client.rest.NuageVspApiUtil;
+import net.nuage.vsp.client.rest.NuageVspApiVersion;
+import net.nuage.vsp.client.rest.NuageVspConstants;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+
 import com.cloud.agent.IAgentControl;
 import com.cloud.agent.api.Answer;
 import com.cloud.agent.api.Command;
@@ -16,26 +30,11 @@ import com.cloud.agent.api.SyncNuageVspCmsIdCommand;
 import com.cloud.agent.api.UpdateNuageVspDeviceAnswer;
 import com.cloud.agent.api.UpdateNuageVspDeviceCommand;
 import com.cloud.host.Host;
-
-import com.cloud.util.NuageVspUtil;
-import com.cloud.utils.StringUtils;
-import com.cloud.utils.crypt.DBEncryptionUtil;
-import net.nuage.vsp.client.common.model.NuageVspAPIParams;
-import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
-import net.nuage.vsp.client.rest.NuageVspApi;
-import net.nuage.vsp.client.rest.NuageVspApiUtil;
-import net.nuage.vsp.client.rest.NuageVspConstants;
-
 import com.cloud.resource.ServerResource;
+import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.component.ManagerBase;
+import com.cloud.utils.crypt.DBEncryptionUtil;
 import com.cloud.utils.exception.CloudRuntimeException;
-
-import org.apache.log4j.Logger;
-
-import javax.naming.ConfigurationException;
-
-import java.util.Map;
-import java.util.regex.Pattern;
 
 import static com.cloud.agent.api.SyncNuageVspCmsIdCommand.SyncType.AUDIT_WITH_CORRECTION;
 
@@ -51,8 +50,10 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
     private int _retryInterval;
     private boolean _shouldAudit = true;
 
-    @Override
-    public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
+    private NuageVspApiVersion version;
+    private NuageVspAPIParams nuageVspHostParams;
+
+    public NuageVspAPIParams validate(Map<String, Object> params) throws ConfigurationException {
 
         _name = (String)params.get("name");
         if (_name == null) {
@@ -84,20 +85,35 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
             throw new ConfigurationException("Unable to find CMS password");
         }
 
+        String cmsId = (String)params.get("cmsId");
         String port = (String)params.get("port");
         if (port == null) {
             throw new ConfigurationException("Unable to find port");
         }
 
+        String apiVersion = (String)params.get("apiversion");
         String apiRelativePath = (String)params.get("apirelativepath");
-        if ((apiRelativePath != null) && (!apiRelativePath.isEmpty())) {
-            String apiVersion = apiRelativePath.substring(apiRelativePath.lastIndexOf('/') + 1);
-            if (!Pattern.matches("v\\d+_\\d+", apiVersion)) {
-                throw new ConfigurationException("Incorrect API version");
-            }
-        } else {
+
+        if (StringUtils.isBlank(apiVersion) && StringUtils.isNotBlank(apiRelativePath)) {
+            apiVersion = apiRelativePath.substring(apiRelativePath.lastIndexOf('/') + 1);
+        }
+
+        if (StringUtils.isBlank(apiVersion)) {
             throw new ConfigurationException("Unable to find API version");
         }
+
+        try {
+            version = new NuageVspApiVersion(apiVersion);
+        } catch(IllegalArgumentException e) {
+            throw new ConfigurationException("Incorrect API version");
+        }
+
+        if (!NuageVspApiUtil.isSupportedApiVersion(version)) {
+            s_logger.warn(String.format("[UPGRADE] API version %s of Nuage Vsp Device %s should be updated.", apiVersion, hostname));
+        }
+
+        int _numRetries;
+        int _retryInterval;
 
         String retryCount = (String)params.get("retrycount");
         if ((retryCount != null) && (!retryCount.isEmpty())) {
@@ -140,7 +156,13 @@ public class NuageVspResource extends ManagerBase implements ServerResource {
             throw new CloudRuntimeException("Failed to login to Nuage VSD on " + hostname + " as user " + cmsUser);
         }
 
-        return true;
+        return nuageVspHostParams;
+    }
+
+    @Override
+    public boolean configure(String name, Map<String, Object> params) throws ConfigurationException {
+        nuageVspHostParams = validate(params);
+        return super.configure(name, params);
     }
 
     @Override

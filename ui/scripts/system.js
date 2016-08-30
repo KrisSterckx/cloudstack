@@ -6955,7 +6955,7 @@
 	                                     },
 	                                     apiversion: {
 	                                         label: 'label.api.version',
-	                                         defaultValue: 'v3_2',
+	                                         defaultValue: 'v4_0',
 	                                         validation: {
 	                                             required: true
 	                                         },
@@ -12869,7 +12869,7 @@
                                     },
                                     apiversion: {
                                         label: 'label.api.version',
-                                        defaultValue: 'v3_2'
+                                        defaultValue: 'v4_0'
                                     },
                                     retrycount: {
                                         label: 'label.numretries',
