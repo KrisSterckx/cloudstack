@@ -323,6 +323,12 @@ public class MockConfigurationManagerImpl extends ManagerBase implements Configu
     }
 
     @Override
+    public boolean isOfferingForIsolatedNetwork(NetworkOffering offering) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
     public PortableIpRange createPortableIpRange(CreatePortableIpRangeCmd cmd) throws ConcurrentOperationException {
         return null;// TODO Auto-generated method stub
     }

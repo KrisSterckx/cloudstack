@@ -4546,14 +4546,14 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
             // Now apply pagination
             List<? extends NetworkOffering> wPagination = StringUtils.applyPagination(supportedOfferings, cmd.getStartIndex(), cmd.getPageSizeVal());
             if (wPagination != null) {
-                Pair<List<? extends NetworkOffering>, Integer> listWPagination = new Pair<List<? extends NetworkOffering>, Integer>(wPagination, offerings.size());
+                Pair<List<? extends NetworkOffering>, Integer> listWPagination = new Pair<List<? extends NetworkOffering>, Integer>(wPagination, wPagination.size());
                 return listWPagination;
             }
             return new Pair<List<? extends NetworkOffering>, Integer>(supportedOfferings, supportedOfferings.size());
         } else {
             List<? extends NetworkOffering> wPagination = StringUtils.applyPagination(offerings, cmd.getStartIndex(), cmd.getPageSizeVal());
             if (wPagination != null) {
-                Pair<List<? extends NetworkOffering>, Integer> listWPagination = new Pair<List<? extends NetworkOffering>, Integer>(wPagination, offerings.size());
+                Pair<List<? extends NetworkOffering>, Integer> listWPagination = new Pair<List<? extends NetworkOffering>, Integer>(wPagination, wPagination.size());
                 return listWPagination;
             }
             return new Pair<List<? extends NetworkOffering>, Integer>(offerings, offerings.size());
@@ -4564,9 +4564,18 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
     public boolean isOfferingForVpc(NetworkOffering offering) {
         boolean vpcProvider = _ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.VPCVirtualRouter) ||
                               _ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.JuniperContrailVpcRouter) ||
-                              _ntwkOffServiceMapDao.getDistinctProviders(offering.getId()).contains(Provider.NuageVspVpc.getName());
+                              _ntwkOffServiceMapDao.getDistinctProviders(offering.getId()).contains(Provider.NuageVspVpc.getName()) ||
+                             (_ntwkOffServiceMapDao.getDistinctProviders(offering.getId()).contains(Provider.NuageVsp.getName()) && !offering.isConserveMode());
 
         return vpcProvider;
+    }
+
+    public boolean isOfferingForIsolatedNetwork(NetworkOffering offering) {
+        boolean isolatedNetworkProvider = !(_ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.VPCVirtualRouter) ||
+                _ntwkOffServiceMapDao.isProviderForNetworkOffering(offering.getId(), Provider.JuniperContrailVpcRouter) ||
+                _ntwkOffServiceMapDao.getDistinctProviders(offering.getId()).contains(Provider.NuageVspVpc.getName()));
+
+        return isolatedNetworkProvider;
     }
 
     @Override

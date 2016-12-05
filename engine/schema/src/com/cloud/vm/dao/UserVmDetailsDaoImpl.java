@@ -18,19 +18,55 @@ package com.cloud.vm.dao;
 
 import javax.ejb.Local;
 
+import org.apache.commons.lang.StringUtils;
 import org.springframework.stereotype.Component;
 
 import org.apache.cloudstack.resourcedetail.ResourceDetailsDaoBase;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.cloud.utils.db.SearchBuilder;
+import com.cloud.utils.db.SearchCriteria;
 import com.cloud.vm.UserVmDetailVO;
 
 @Component
 @Local(value = UserVmDetailsDao.class)
 public class UserVmDetailsDaoImpl extends ResourceDetailsDaoBase<UserVmDetailVO> implements UserVmDetailsDao {
+    public static final String DHCP_OPTION_PREFIX = "dhcp:";
+    private final SearchBuilder<UserVmDetailVO> dhcpOptionSearch;
+
+    public UserVmDetailsDaoImpl() {
+        dhcpOptionSearch = createSearchBuilder();
+        dhcpOptionSearch.and("resourceId", dhcpOptionSearch.entity().getResourceId(), SearchCriteria.Op.EQ);
+        dhcpOptionSearch.and(dhcpOptionSearch.entity().getName(), SearchCriteria.Op.LIKE).values("dhcp:%");
+        dhcpOptionSearch.done();
+    }
 
     @Override
     public void addDetail(long resourceId, String key, String value, boolean display) {
         super.addDetail(new UserVmDetailVO(resourceId, key, value, display));
+    }
+
+    public Map<Integer, String> listDhcpOptions(Long resourceId) {
+        Map<Integer, String> dhcpOptions = new HashMap<>();
+        SearchCriteria<UserVmDetailVO> sc = dhcpOptionSearch.create();
+        sc.setParameters("resourceId", resourceId);
+        List<UserVmDetailVO> results = search(sc, null);
+
+        for (UserVmDetailVO vmDetail : results) {
+            if (vmDetail.getName().startsWith(DHCP_OPTION_PREFIX)) {
+
+                String optionValue = StringUtils.removeStart(vmDetail.getName(), DHCP_OPTION_PREFIX);
+                try {
+                    Integer option = Integer.parseInt(optionValue);
+                    dhcpOptions.put(option, vmDetail.getValue());
+                } catch (NumberFormatException ignored){}
+            }
+        }
+
+        return dhcpOptions;
     }
 
 }

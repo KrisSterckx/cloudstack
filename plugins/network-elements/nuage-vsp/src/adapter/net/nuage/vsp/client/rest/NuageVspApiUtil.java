@@ -10,10 +10,14 @@ import java.util.Map;
 import java.util.Random;
 import java.util.StringTokenizer;
 
+import com.google.common.base.Predicate;
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
 import net.nuage.vsp.client.common.model.ACLRule.ACLAction;
 import net.nuage.vsp.client.common.model.ACLRule.ACLType;
+import net.nuage.vsp.client.common.model.DhcpOption;
+import net.nuage.vsp.client.common.model.DhcpOptions;
+import net.nuage.vsp.client.common.model.NetworkDetails;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -33,6 +37,7 @@ import com.google.common.collect.Iterables;
 
 import org.apache.cloudstack.api.InternalIdentity;
 import com.cloud.host.HostVO;
+import com.cloud.network.Network;
 import com.cloud.network.rules.FirewallRule;
 import com.cloud.network.vpc.NetworkACLItem;
 import com.cloud.network.vpc.NetworkACLItem.Action;
@@ -45,6 +50,9 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 
 public class NuageVspApiUtil {
 
+    public enum FetchAndOrDelete {
+        FETCH_AND_DELETE, DONT_FETCH, FETCH
+    }
     private static final Logger s_logger = Logger.getLogger(NuageVspApiUtil.class);
 
     private static Configuration configProps = null;
@@ -56,12 +64,12 @@ public class NuageVspApiUtil {
         }
     }
 
-    public static String createVMInVSP(String vmInstanceName, String vmUuid, List<Map<String, String>> vmInterfaceList, Object[] attachedNetworkDetails,
+    public static String createVMInVSP(String vmInstanceName, String vmUuid, List<Map<String, String>> vmInterfaceList, NetworkDetails attachedNetworkDetails, DhcpOptions dhcpOptions,
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser, NuageVspAPIParams nuageVspAPIParamsAsAccUser) throws NuageVspAPIUtilException {
 
         s_logger.debug("VM with UUID " + vmUuid + " does not exist in VSP. So, just add the new VM");
 
-        createVportInVsp(vmInstanceName, vmUuid, vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser);
+        createVportInVsp(vmInstanceName, vmUuid, vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser, dhcpOptions);
 
         Map<String, Object> vmEntity = new HashMap<String, Object>();
         vmEntity.put(NuageVspAttribute.VM_NAME.getAttributeName(), vmInstanceName);
@@ -92,8 +100,8 @@ public class NuageVspApiUtil {
         }
     }
 
-    public static String addVMInterfaceToVM(String networkUuid, String vmInstanceName, String vmUuid, List<Map<String, String>> vmInterfaceList, String macAddress,
-            String vmJsonString, Object[] attachedNetworkDetails, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, NuageVspAPIParams nuageVspAPIParamsAsAccUser)
+    public static String addVMInterfaceToVM(Network network, String vmInstanceName, String vmUuid, List<Map<String, String>> vmInterfaceList, String macAddress,
+            String vmJsonString, NetworkDetails attachedNetworkDetails, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, NuageVspAPIParams nuageVspAPIParamsAsAccUser, DhcpOptions dhcpOptions)
             throws NuageVspAPIUtilException {
 
         s_logger.debug("VM with UUID " + vmUuid + " already exists in VSP. So, just add the VM new VM interface");
@@ -103,7 +111,7 @@ public class NuageVspApiUtil {
         String vmInterfacesFromNuageVSP = (String)vmDetails.iterator().next().get(NuageVspAttribute.VM_INTERFACES.getAttributeName());
         if (!isVMInterfacePresent(vmInterfacesFromNuageVSP, macAddress)) {
             try {
-                createVportInVsp(vmInstanceName, vmUuid, vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser);
+                createVportInVsp(vmInstanceName, vmUuid, vmInterfaceList, attachedNetworkDetails, nuageVspAPIParamsAsCmsUser, dhcpOptions);
                 String vmInterface = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParamsAsAccUser.getCloudstackDomainName(),
                         nuageVspAPIParamsAsAccUser.getCurrentUserName(), NuageVspEntity.VM, vmId, NuageVspEntity.VM_INTERFACE, vmInterfaceList.iterator().next(), null,
                         nuageVspAPIParamsAsAccUser.getRestRelativePath(), nuageVspAPIParamsAsAccUser.getCmsUserInfo(), nuageVspAPIParamsAsAccUser.getNoofRetry(),
@@ -119,10 +127,19 @@ public class NuageVspApiUtil {
                     }
                 }
 
-                String errorMessage = "Failed to add VM Interface for the VM with UUID " + vmUuid + " for network " + networkUuid + ".  Json response from VSP REST API is  "
+                String errorMessage = "Failed to add VM Interface for the VM with UUID " + vmUuid + " for network " + network.getUuid() + ".  Json response from VSP REST API is  "
                         + exception.getMessage();
                 s_logger.error(errorMessage, exception);
                 throw new NuageVspAPIUtilException(errorMessage);
+            }
+        } else if (dhcpOptions != null) {
+            // We still need to update the dhcpOptions if changed
+            String vportVsdId = NuageVspApiUtil.findEntityIdByExternalUuid(attachedNetworkDetails.getSubnetType(), attachedNetworkDetails.getSubnetId(), NuageVspEntity.VPORT, vmInterfaceList.get(0).get(NuageVspAttribute.EXTERNAL_ID.getAttributeName()), nuageVspAPIParamsAsCmsUser);
+
+            try {
+                NuageVspApiUtil.createDhcpOptions(network.getName(), vmInterfaceList.get(0).get(NuageVspAttribute.EXTERNAL_ID.getAttributeName()), nuageVspAPIParamsAsCmsUser, vportVsdId, NuageVspEntity.VPORT, "Update DHCP Options", FetchAndOrDelete.FETCH_AND_DELETE, new StringBuffer(), dhcpOptions);
+            } catch (Exception e) {
+                s_logger.error("[AddVMInterfaceToVM] Failed to set DHCP option, error msg: " + e.getMessage());
             }
         }
 
@@ -483,22 +500,22 @@ public class NuageVspApiUtil {
     }
 
     public static Pair<String, String> createSharedNetworkWithDefaultACLs(String domainUuid, String enterpriseId, String networkName, String netmask, String address, String gateway,
-            Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
+            Long networkAclId, DhcpOptions dhcpOptions, List<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
             JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         s_logger.debug("Create or find a subnet associated to shared network " + networkName + " in VSP");
-        return createNetworkConfigurationWithDefaultACLS(true, false, domainUuid, networkName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
+        return createNetworkConfigurationWithDefaultACLS(true, false, domainUuid, networkName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dhcpOptions,
                 gatewaySystemIds, ipAddressRanges, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, preConfiguredDomainTemplateName);
     }
 
     public static Pair<String, String> createIsolatedL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
-            Long networkAclId, List<String> dnsServers, List<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
+            Long networkAclId, DhcpOptions dhcpOptions, List<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
             JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
-        return createVPCOrL3NetworkWithDefaultACLs(enterpriseId, networkName, networkId, netmask, address, gateway, networkAclId, dnsServers, gatewaySystemIds, ipAddressRanges,
+        return createVPCOrL3NetworkWithDefaultACLs(enterpriseId, networkName, networkId, netmask, address, gateway, networkAclId, dhcpOptions, gatewaySystemIds, ipAddressRanges,
                 defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, null, null, preConfiguredDomainTemplateName);
     }
 
     public static Pair<String, String> createVPCOrL3NetworkWithDefaultACLs(String enterpriseId, String networkName, long networkId, String netmask, String address, String gateway,
-            Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
+            Long networkAclId, DhcpOptions dhcpOptions, Collection<String> gatewaySystemIds, Collection<String[]> ipAddressRanges, boolean defaultCSEgressPolicy, String networkUuid,
             JSONArray groupId, NuageVspAPIParams nuageVspAPIParams, String vpcName, String vpcUuid, String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
 
         s_logger.debug("Create or find a VPC/Isolated network associated to network " + networkName + " in VSP");
@@ -513,12 +530,12 @@ public class NuageVspApiUtil {
             vpcOrSubnetName = networkName;
         }
 
-        return createNetworkConfigurationWithDefaultACLS(isVpc, isVpc, vpcOrSubnetUuid, vpcOrSubnetName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dnsServers,
+        return createNetworkConfigurationWithDefaultACLS(isVpc, isVpc, vpcOrSubnetUuid, vpcOrSubnetName, enterpriseId, networkName, netmask, address, gateway, networkAclId, dhcpOptions,
                 gatewaySystemIds, ipAddressRanges, defaultCSEgressPolicy, networkUuid, groupId, nuageVspAPIParams, preConfiguredDomainTemplateName);
     }
 
     private static Pair<String, String> createNetworkConfigurationWithDefaultACLS(boolean reuseDomain, boolean isVpc, String uuid, String name, String enterpriseId, String networkName, String netmask,
-              String address, String gateway, Long networkAclId, List<String> dnsServers, Collection<String> gatewaySystemIds, Collection<String[]> ipAddressRanges,
+              String address, String gateway, Long networkAclId, DhcpOptions dhcpOptions, Collection<String> gatewaySystemIds, Collection<String[]> ipAddressRanges,
               boolean defaultCSEgressPolicy, String networkUuid, JSONArray groupId, NuageVspAPIParams nuageVspAPIParams,
               String preConfiguredDomainTemplateName) throws NuageVspAPIUtilException {
         String domainTemplateId = null;
@@ -548,11 +565,11 @@ public class NuageVspApiUtil {
         if (predefinedDomainTemplateSet) {
             domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
             if (StringUtils.isNotBlank(domainId)) {
-                subnetId = validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid, netmask, address, gateway, dnsServers,
+                subnetId = validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid, netmask, address, gateway, dhcpOptions,
                         ipAddressRanges, nuageVspAPIParams);
             } else {
                 Pair<String, String> domainAndSubnetId = createDomainZoneAndSubnet(reuseDomain, vsdDomainTemplateId, networkName, uuid, name, gatewaySystemIds, setDefaultAcls,
-                        defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
+                        defaultCSEgressPolicy, groupId, netmask, address, gateway, dhcpOptions, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
                 domainId = domainAndSubnetId.first();
                 subnetId = domainAndSubnetId.second();
             }
@@ -563,7 +580,7 @@ public class NuageVspApiUtil {
                 domainId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN, uuid, nuageVspAPIParams);
                 if (StringUtils.isNotBlank(domainId)) {
                     subnetId = validateDomain(reuseDomain, errorMessage, debugMessage, domainId, networkUuid, networkName, uuid,
-                            netmask, address, gateway, dnsServers, ipAddressRanges, nuageVspAPIParams);
+                            netmask, address, gateway, dhcpOptions, ipAddressRanges, nuageVspAPIParams);
                 } else {
                     errorMessage.append(debugMessage).append(" Domain is not found under the DomainTemplate ").append(domainTemplateId).append(" for network ").append(networkName)
                             .append(" in VSP. There is a network sync issue with VSD");
@@ -588,7 +605,7 @@ public class NuageVspApiUtil {
                 }
 
                 Pair<String, String> domainAndSubnetId = createDomainZoneAndSubnet(reuseDomain, domainTemplateId, networkName, uuid, name, gatewaySystemIds, setDefaultAcls,
-                        defaultCSEgressPolicy, groupId, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
+                        defaultCSEgressPolicy, groupId, netmask, address, gateway, dhcpOptions, ipAddressRanges, networkUuid, enterpriseId, errorMessage, debugMessage, nuageVspAPIParams);
                 domainId = domainAndSubnetId.first();
                 subnetId = domainAndSubnetId.second();
             }
@@ -606,7 +623,7 @@ public class NuageVspApiUtil {
     }
 
     private static String validateDomain(boolean reuseDomain, StringBuffer errorMessage, String debugMessage, String domainId, String networkUuid, String networkName, String zoneUuid,
-                                       String netmask, String address, String gateway, List<String> dnsServers, Collection<String[]> ipAddressRanges, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+                                       String netmask, String address, String gateway, DhcpOptions dhcpOptions, Collection<String[]> ipAddressRanges, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
         String subnetId = findEntityIdByExternalUuid(NuageVspEntity.DOMAIN, domainId, NuageVspEntity.SUBNET, networkUuid, nuageVspAPIParams);
         if ((!reuseDomain) && StringUtils.isBlank(subnetId)) {
             errorMessage.append(debugMessage).append(" and Subnet is not found under the Domain ").append(domainId).append(" for network ").append(networkName)
@@ -618,7 +635,7 @@ public class NuageVspApiUtil {
                         .append(" does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network");
             } else {
                 if (StringUtils.isBlank(subnetId)) {
-                    subnetId = createL3Subnet(networkName, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, nuageVspAPIParams, zoneId, subnetId,
+                    subnetId = createL3Subnet(networkName, netmask, address, gateway, dhcpOptions, ipAddressRanges, networkUuid, nuageVspAPIParams, zoneId, subnetId,
                             errorMessage, debugMessage);
                 } else {
                     s_logger.debug(debugMessage + " Subnet " + subnetId + " already exists for network " + networkName + " in VSP");
@@ -632,7 +649,7 @@ public class NuageVspApiUtil {
 
     private static Pair<String, String> createDomainZoneAndSubnet(boolean reuseDomain, String domainTemplateId, String networkName, String vpcOrSubnetUuid,
                                                   String vpcOrSubnetName, Collection<String> gatewaySystemIds, boolean createDefaultAcls, boolean defaultCSEgressPolicy, JSONArray groupId,
-                                                  String netmask, String address, String gateway, List<String> dnsServers, Collection<String[]> ipAddressRanges, String networkUuid,
+                                                  String netmask, String address, String gateway, DhcpOptions dhcpOptions, Collection<String[]> ipAddressRanges, String networkUuid,
                                                   String enterpriseId, StringBuffer errorMessage, String debugMessage, NuageVspAPIParams nuageVspAPIParams) {
 
         String domainId = null;
@@ -703,7 +720,7 @@ public class NuageVspApiUtil {
                     .append(exception.getMessage());
         }
 
-        String subnetId = createL3Subnet(networkName, netmask, address, gateway, dnsServers, ipAddressRanges, networkUuid, nuageVspAPIParams, zoneId, null, errorMessage,
+        String subnetId = createL3Subnet(networkName, netmask, address, gateway, dhcpOptions, ipAddressRanges, networkUuid, nuageVspAPIParams, zoneId, null, errorMessage,
                 debugMessage);
         return new Pair<String, String>(domainId, subnetId);
     }
@@ -786,7 +803,7 @@ public class NuageVspApiUtil {
         }
     }
 
-    private static String createL3Subnet(String networkName, String netmask, String address, String gateway, List<String> dnsServers, Collection<String[]> ipAddressRanges,
+    private static String createL3Subnet(String networkName, String netmask, String address, String gateway, DhcpOptions dhcpOptions, Collection<String[]> ipAddressRanges,
             String networkUuid, NuageVspAPIParams nuageVspAPIParams, String zoneId, String subnetId, StringBuffer errorMessage, String debugMessage) {
         try {
             if (errorMessage.length() == 0) {
@@ -808,7 +825,7 @@ public class NuageVspApiUtil {
                 for (String[] ipAddressRange : ipAddressRanges) {
                     createAddressRange(networkName, ipAddressRange, networkUuid, nuageVspAPIParams, subnetId, NuageVspEntity.SUBNET, debugMessage, errorMessage);
                 }
-                createDhcpOptions(networkName, dnsServers, networkUuid, nuageVspAPIParams, subnetId, NuageVspEntity.SUBNET, debugMessage, true, errorMessage);
+                createDhcpOptions(networkName, dhcpOptions, networkUuid, nuageVspAPIParams, subnetId, NuageVspEntity.SUBNET, debugMessage, true, errorMessage);
             }
         } catch (Exception exception) {
             errorMessage.append(debugMessage + " Failed to create Subnet for network ").append(networkName).append(".  Json response from VSP REST API is  ")
@@ -838,62 +855,90 @@ public class NuageVspApiUtil {
         }
     }
 
-    public static void createDhcpOptions(String networkName, List<String> dnsServers, String networkUuid, NuageVspAPIParams nuageVspAPIParams, String networkId,
-            NuageVspEntity nuageVspEntity, String debugMessage, boolean isCreateDhcpOption, StringBuffer errorMessage) throws Exception {
-        try {
-            Map<String, Object> existingDhcpOptions = null;
-            if (dnsServers != null && dnsServers.size() > 0) {
-                existingDhcpOptions = new HashMap<String, Object>();
-                String type = "06";
-                String value = null;
-                String length = null;
-                if (dnsServers.size() == 2) {
-                    length = "08";
-                    value = getPaddedHexValue(dnsServers.get(0)) + getPaddedHexValue(dnsServers.get(1));
-                } else {
-                    length = "04";
-                    value = getPaddedHexValue(dnsServers.get(0));
-                }
-                existingDhcpOptions.put(NuageVspAttribute.DHCP_OPTIONS_LENGTH.getAttributeName(), length);
-                existingDhcpOptions.put(NuageVspAttribute.DHCP_OPTIONS_TYPE.getAttributeName(), type);
-                existingDhcpOptions.put(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName(), value);
-                existingDhcpOptions.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), networkUuid);
-            }
+    public static void removeAllDhcpOptionsWithCode(NuageVspEntity nuageVspEntity, String externalUuid, String entityId, NuageVspAPIParams nuageVspAPIParams, List<Integer> dhcpOptionCodesToRemove) throws Exception {
+        List<Map<String, Object>> foundDhcpOptions = null;
+        String dhcpOptionsJson = findEntityByExternalUuid(nuageVspEntity, entityId, NuageVspEntity.DHCP_OPTIONS, externalUuid, nuageVspAPIParams);
 
-            if (!isCreateDhcpOption) {
-                //get the DHCP option information and check if exists. If yes, then see if the DHCP option is modified
-                String dhcpOptionsJson = findEntityByExternalUuid(nuageVspEntity, networkId, NuageVspEntity.DHCP_OPTIONS, networkUuid, nuageVspAPIParams);
-                if (!StringUtils.isBlank(dhcpOptionsJson)) {
-                    Map<String, Object> dhcpOption = parseJson(dhcpOptionsJson, NuageVspEntity.DHCP_OPTIONS).iterator().next();
-                    String dhcpOptionValue = (String)dhcpOption.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName());
-                    String dhcpOptionId = (String)dhcpOption.get(NuageVspAttribute.ID.getAttributeName());
-                    if (existingDhcpOptions == null) {
-                        s_logger.debug("Network (" + networkUuid + ") DNS server's setting " + dhcpOptionValue + " is removed. So, delete the DHCPOption for the network");
+        if (!StringUtils.isBlank(dhcpOptionsJson)) {
+            foundDhcpOptions = parseJson(dhcpOptionsJson, NuageVspEntity.DHCP_OPTIONS);
+        }
+
+        if (foundDhcpOptions != null) {
+            for(Integer dhcpOptionCodeToRemove : dhcpOptionCodesToRemove) {
+                DhcpOption optionToRemove = new DhcpOption(dhcpOptionCodeToRemove, "");
+
+                for (Map<String, Object> foundDhcpOption : foundDhcpOptions) {
+                    String dhcpOptionType = (String) foundDhcpOption.get(NuageVspAttribute.DHCP_OPTIONS_TYPE.getAttributeName());
+
+                    if (dhcpOptionType.equals(optionToRemove.getCode())) {
+                        s_logger.debug("[removeAllDhcpOptionsWithCode] dhcpoption " + foundDhcpOption.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName()) + " is removed.");
+                        String dhcpOptionId = (String) foundDhcpOption.get(NuageVspAttribute.ID.getAttributeName());
                         cleanUpVspStaleObjects(NuageVspEntity.DHCP_OPTIONS, dhcpOptionId, nuageVspAPIParams);
-                        return;
-                    } else {
-                        if (!existingDhcpOptions.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName()).equals(dhcpOptionValue)) {
-                            NuageVspApi.executeRestApi(RequestType.MODIFY, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                                    NuageVspEntity.DHCP_OPTIONS, dhcpOptionId, null, existingDhcpOptions, null, nuageVspAPIParams.getRestRelativePath(),
-                                    nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
-                                    nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
-                            s_logger.debug("Network (" + networkName + ") DNS server's setting " + dhcpOptionValue + " is changed to new value "
-                                    + existingDhcpOptions.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName()) + ". So, the DHCPOption for the network is updated");
-                            return;
-                        } else {
-                            s_logger.debug("Network (" + networkName + ") DNS server's setting " + dhcpOptionValue + " is not changed");
-                            return;
-                        }
                     }
                 }
             }
-            //Create the DHCP Option if it is Create case or if the DHCP option was not already associated with the network
-            if (existingDhcpOptions != null) {
-                String addressRangeJson = NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
-                        nuageVspEntity, networkId, NuageVspEntity.DHCP_OPTIONS, existingDhcpOptions, null, nuageVspAPIParams.getRestRelativePath(),
-                        nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false, nuageVspAPIParams.isCmsUser(),
-                        nuageVspAPIParams.getNuageVspCmsId());
-                s_logger.debug(debugMessage + " Created DHCP options for network " + networkName + " in VSP. Response from VSP is " + addressRangeJson);
+        }
+    }
+
+    public static void createDhcpOptions(String networkName, String networkUuid, NuageVspAPIParams nuageVspAPIParams, String networkId,
+                                         NuageVspEntity nuageVspEntity, String debugMessage, FetchAndOrDelete fetchExistingOptions, StringBuffer errorMessage, DhcpOptions dhcpOptions) throws Exception {
+        try {
+            List<Map<String, Object>> existingDhcpOptions = null;
+
+            if (fetchExistingOptions == FetchAndOrDelete.FETCH || FetchAndOrDelete.FETCH_AND_DELETE == fetchExistingOptions) {
+                //get the DHCP option information and check if exists. If yes, then see if the DHCP option is modified
+                String dhcpOptionsJson = findEntityByExternalUuid(nuageVspEntity, networkId, NuageVspEntity.DHCP_OPTIONS, networkUuid, nuageVspAPIParams);
+                if (!StringUtils.isBlank(dhcpOptionsJson)) {
+                    existingDhcpOptions = parseJson(dhcpOptionsJson, NuageVspEntity.DHCP_OPTIONS);
+                }
+            }
+
+            for (final DhcpOption dhcpOption : dhcpOptions.getOptions()) {
+                Map<String, Object> existingDhcpOption = null;
+                //get the DHCP option information and check if exists. If yes, then see if the DHCP option is modified
+                if (existingDhcpOptions != null) {
+                    existingDhcpOption = Iterables.find(existingDhcpOptions, new Predicate<Map<String, Object>>() {
+                        @Override
+                        public boolean apply(Map<String, Object> existingDhcpOption) {
+                            return existingDhcpOption.get((NuageVspAttribute.DHCP_OPTIONS_TYPE.getAttributeName())).equals(dhcpOption.getCode());
+                        }
+                    }, null);
+                }
+                if (existingDhcpOption == null) {
+                    // Create a new DhcpOption
+                    Map<String, Object> dhcpOptionToCreate = createDhcpOption(true, networkUuid, dhcpOption);
+                    String dhcpResponseJson = NuageVspApi.executeRestApi(RequestType.CREATE,
+                            nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(), nuageVspEntity, networkId, NuageVspEntity.DHCP_OPTIONS, dhcpOptionToCreate, null,
+                            nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
+                            nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
+                    s_logger.debug(debugMessage + " Created DHCP options for network " + networkName + " in VSP. Response from VSP is " + dhcpResponseJson);
+                } else {
+                    // Update exiting DhcpOption if current value is different
+                    String dhcpOptionValue = (String) existingDhcpOption.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName());
+
+                    if (!dhcpOptionValue.equals(dhcpOption.getValue())) {
+                        String dhcpOptionId = (String) existingDhcpOption.get(NuageVspAttribute.ID.getAttributeName());
+
+                        Map<String, Object> dhcpOptionToUpdate = createDhcpOption(false, networkUuid, dhcpOption);
+                        NuageVspApi.executeRestApi(RequestType.MODIFY, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                                NuageVspEntity.DHCP_OPTIONS, dhcpOptionId, null, dhcpOptionToUpdate, null,
+                                nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
+                                nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
+                        s_logger.debug("[createDhcpOption] Network (" + networkName + ") DNS server's setting " + dhcpOptionValue + " is changed to new value "
+                                + dhcpOption.getValue() + ". So, the DHCPOption for the network is updated");
+                    }
+                    existingDhcpOptions.remove(existingDhcpOption);
+                }
+
+            }
+
+            // Delete all non updated dhcp options
+            if (existingDhcpOptions != null && FetchAndOrDelete.FETCH_AND_DELETE == fetchExistingOptions) {
+                for (Map<String, Object> dhcpOptionToRemove : existingDhcpOptions) {
+                    s_logger.debug("[createDhcpOption] Network (" + networkUuid + ") DNS server's setting " + dhcpOptionToRemove.get(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName()) + " is removed. So, delete the DHCPOption for the network");
+                    String dhcpOptionId = (String) dhcpOptionToRemove.get(NuageVspAttribute.ID.getAttributeName());
+                    cleanUpVspStaleObjects(NuageVspEntity.DHCP_OPTIONS, dhcpOptionId, nuageVspAPIParams);
+                }
             }
         } catch (Exception exception) {
             errorMessage.append(debugMessage + " Failed to create DHCP options for network ").append(networkName).append(".  Json response from VSP REST API is  ")
@@ -901,17 +946,28 @@ public class NuageVspApiUtil {
         }
     }
 
-    private static String getPaddedHexValue(String dnsServer) {
-        String value = Long.toHexString(NetUtils.ip2Long(dnsServer));
-        int valueLength = 8 - value.length();
-        if (valueLength > 0) {
-            StringBuffer pad = new StringBuffer();
-            for (int i = 0; i < valueLength; i++) {
-                pad.append("0");
-            }
-            value = pad + value;
+    public static void createDhcpOptions(String networkName, DhcpOptions dhcpOptions, String networkUuid, NuageVspAPIParams nuageVspAPIParams, String networkId,
+            NuageVspEntity nuageVspEntity, String debugMessage, boolean isCreateDhcpOption, StringBuffer errorMessage) throws Exception {
+
+        FetchAndOrDelete create;
+        if (isCreateDhcpOption){
+            create = FetchAndOrDelete.DONT_FETCH;
+        } else {
+            create = FetchAndOrDelete.FETCH_AND_DELETE;
         }
-        return value;
+
+        createDhcpOptions(networkName, networkUuid, nuageVspAPIParams, networkId, nuageVspEntity, debugMessage, create, errorMessage, dhcpOptions);
+    }
+
+    public static Map<String, Object> createDhcpOption(boolean isCreateDhcpOption, String externalId, DhcpOption dhcpOption) {
+        Map<String, Object> existingDhcpOption = new HashMap<String, Object>();
+        existingDhcpOption.put(NuageVspAttribute.DHCP_OPTIONS_LENGTH.getAttributeName(), dhcpOption.getLength());
+        existingDhcpOption.put(NuageVspAttribute.DHCP_OPTIONS_TYPE.getAttributeName(), dhcpOption.getCode());
+        existingDhcpOption.put(NuageVspAttribute.DHCP_OPTIONS_VALUE.getAttributeName(), dhcpOption.getValue());
+        if (isCreateDhcpOption) {
+            existingDhcpOption.put(NuageVspAttribute.EXTERNAL_ID.getAttributeName(), externalId);
+        }
+        return existingDhcpOption;
     }
 
     public static String createIsolatedL2NetworkWithDefaultACLs(String entepriseId, String networkName, String netmask, String address, String gateway,
@@ -1028,6 +1084,17 @@ public class NuageVspApiUtil {
         }
 
         return errorMessage;
+    }
+
+    public static String getEnterprise(String domainUuid, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+        String enterpriseId = findEntityIdByExternalUuid(NuageVspEntity.ENTERPRISE, null, null, domainUuid, nuageVspAPIParams);
+        if (StringUtils.isBlank(enterpriseId)) {
+            String errorMessage = "Enterprise corresponding to CS domain " + domainUuid
+                    + " does not exist in VSP. There is a data sync issue. Please a check VSP or create a new network";
+            s_logger.error(errorMessage);
+            throw new NuageVspAPIUtilException(errorMessage);
+        }
+        return enterpriseId;
     }
 
     public static Pair<String, String> getIsolatedSubNetwork(String entepriseId, String networkUuid, NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
@@ -1812,8 +1879,8 @@ public class NuageVspApiUtil {
         return cleanUpVspStaleObjects(entityToBeCleaned, entityIDToBeCleaned, nuageVspAPIParams, null);
     }
 
-    private static void createVportInVsp(String vmInstanceName, String vmUuid, List<Map<String, String>> vmInterfaceList, Object[] attachedNetworkDetails,
-            NuageVspAPIParams nuageVspAPIParams) throws NuageVspAPIUtilException {
+    private static void createVportInVsp(String vmInstanceName, String vmUuid, List<Map<String, String>> vmInterfaceList, NetworkDetails attachedNetworkDetails,
+            NuageVspAPIParams nuageVspAPIParams, DhcpOptions dhcpOptions) throws NuageVspAPIUtilException {
 
         List<String> vPortIds = new ArrayList<String>();
         for (Map<String, String> vmInterface : vmInterfaceList) {
@@ -1822,8 +1889,8 @@ public class NuageVspApiUtil {
             //Create a VPort for each VM interface. This its association will not be deleted when VM is stopped
             //then set the VPortID in the VM Interface
             //Check if VPort already exists
-            NuageVspEntity networkTypeToBeAttached = (NuageVspEntity)attachedNetworkDetails[0];
-            String networkIdToBeAttached = (String)attachedNetworkDetails[1];
+            NuageVspEntity networkTypeToBeAttached = attachedNetworkDetails.getSubnetType();
+            String networkIdToBeAttached = attachedNetworkDetails.getSubnetId();
             String vPortId = NuageVspApiUtil.findEntityIdByExternalUuid(networkTypeToBeAttached, networkIdToBeAttached, NuageVspEntity.VPORT, vmInterfaceUuid, nuageVspAPIParams);
             if (StringUtils.isBlank(vPortId)) {
                 Map<String, Object> vmPortEntity = new HashMap<String, Object>();
@@ -1843,6 +1910,17 @@ public class NuageVspApiUtil {
                             + vPortJsonString);
                     vPortId = getEntityId(vPortJsonString, NuageVspEntity.VPORT);
                     vPortIds.add(vPortId);
+
+                    if (dhcpOptions != null) {
+                        for (DhcpOption dhcpOption : dhcpOptions.getOptions()){
+                            Map<String, Object> dhcpOptionToCreate = createDhcpOption(true, vmInterfaceUuid, dhcpOption);
+
+                            NuageVspApi.executeRestApi(RequestType.CREATE, nuageVspAPIParams.getCloudstackDomainName(), nuageVspAPIParams.getCurrentUserName(),
+                                    NuageVspEntity.VPORT, vPortId, NuageVspEntity.DHCP_OPTIONS, dhcpOptionToCreate, null,
+                                    nuageVspAPIParams.getRestRelativePath(), nuageVspAPIParams.getCmsUserInfo(), nuageVspAPIParams.getNoofRetry(), nuageVspAPIParams.getRetryInterval(), false,
+                                    nuageVspAPIParams.isCmsUser(), nuageVspAPIParams.getNuageVspCmsId());
+                        }
+                    }
                 } catch (Exception e) {
                     String errorMessage = "Failed to create VPort in VSP using REST API. Json response from VSP REST API is  " + e.getMessage();
                     s_logger.error(errorMessage, e);
@@ -2040,9 +2118,19 @@ public class NuageVspApiUtil {
         return errorMap;
     }
 
+    public static void applyStaticNatInVSP(String networkName, String networkUuid, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, NetworkDetails attachedNetworkDetails,
+                                           String staticNatIpAddress, String staticNatIpUuid, String staticNatVanUuid, String staticNatVlanGateway, String staticNatVlanNetmask,
+                                           String nicIp4Address, String nicUuid, String vportId) throws NuageVspAPIUtilException {
+
+        applyStaticNatInVSP(networkName, networkUuid, nuageVspAPIParamsAsCmsUser, attachedNetworkDetails.getVspDomainId(), attachedNetworkDetails.getVspDomainType(),
+                attachedNetworkDetails.getVspSubnetId(), attachedNetworkDetails.getVspDomainExternalId(), attachedNetworkDetails.isVpc(),
+                staticNatIpAddress, staticNatIpUuid, staticNatVlanGateway, staticNatVlanNetmask, staticNatVanUuid, nicIp4Address, nicUuid,
+                vportId, attachedNetworkDetails.getVspDomainId());
+    }
+
     public static void applyStaticNatInVSP(String networkName, String networkUuid, NuageVspAPIParams nuageVspAPIParamsAsCmsUser, String attachedL2DomainOrDomainId, NuageVspEntity attachedNetworkType,
-            String vspNetworkId, String vpcOrSubnetUuid, boolean isVpc, String staticNatIpAddress, String staticNatIpUuid, String staticNatVlanGateway, String staticNatVlanNetmask,
-            String staticNatVanUuid, String nicIp4Address, String nicUuid, String vportId, String domainId) throws NuageVspAPIUtilException {
+            String vspNetworkId, String vpcOrSubnetUuid, boolean isVpc, String staticNatIpAddress, String staticNatIpUuid, String staticNatVlanGateway, String staticNatVlanNetmask, String staticNatVanUuid,
+            String nicIp4Address, String nicUuid, String vportId, String domainId) throws NuageVspAPIUtilException {
         //check if the SharedNetwork exists in Vsp
         String vspSharedNetworkJson = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.SHARED_NETWORK, null, null,
                 NuageVspAttribute.SHARED_RESOURCE_NAME.getAttributeName(), staticNatVanUuid, nuageVspAPIParamsAsCmsUser);

@@ -27,13 +27,16 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
 
+import junit.framework.Assert;
 import junit.framework.TestCase;
 
 import org.apache.log4j.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Matchers;
+import org.mockito.Mockito;
 
+import com.cloud.exception.ResourceUnavailableException;
 import com.cloud.network.Network;
 
 import com.cloud.network.NetworkModel;
@@ -160,5 +163,27 @@ public class NetworkOrchestratorTest extends TestCase {
         verify(testOrchastrator._networkModel, never()).getElementImplementingProvider(dhcpProvider);
         verify(testOrchastrator._ntwkSrvcDao, never()).getProviderForServiceInNetwork(network.getId(), Service.Dhcp);
         verify(testOrchastrator._networksDao, times(1)).findById(nic.getNetworkId());
+    }
+
+    @Test
+    public void testConfigureExtraDhcpOptions() throws ResourceUnavailableException {
+        NetworkVO network = mock(NetworkVO.class);
+        Map<Integer, String> extradhcpOptions = new HashMap<>();
+        String nicUuid = null;
+        DhcpServiceProvider sp = mock (DhcpServiceProvider.class);
+        when(testOrchastrator.getDhcpServiceProvider(network)).thenReturn(sp);
+        when(network.getId()).thenReturn(1L);
+        when(testOrchastrator._networkModel.areServicesSupportedInNetwork(1L, Service.Dhcp)).thenReturn(true);
+        extradhcpOptions.put(114, "testValue");
+        Mockito.doThrow(ResourceUnavailableException.class).when(sp).setDhcpOptionsForVM(network, null, nicUuid);
+        try {
+            testOrchastrator.configureExtraDhcpOptions(network, extradhcpOptions, nicUuid);
+        } catch (ResourceUnavailableException e){
+            Assert.fail();
+        }
+        try {
+            testOrchastrator.configureExtraDhcpOptions(network, null, nicUuid);
+            Assert.fail();
+        } catch (ResourceUnavailableException e){}
     }
 }

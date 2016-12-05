@@ -793,6 +793,22 @@ test_data = {
         "publicport": 22,
         "protocol": 'TCP'
     },
+    "http_rule": {
+        "privateport": 80,
+        "publicport": 80,
+        "startport": 80,
+        "endport": 80,
+        "protocol": "TCP",
+        "cidrlist": '0.0.0.0/0',
+    },
+    "dns_rule": {
+        "privateport": 53,
+        "publicport": 53,
+        "startport": 53,
+        "endport": 53,
+        "protocol": "UDP",
+        "cidrlist": '0.0.0.0/0',
+    },
     "icmprule": {
         "icmptype":-1,
         "icmpcode":-1,
@@ -1533,5 +1549,99 @@ test_data = {
             "ldapPassword": ""
         },
         "systemVmDelay": 120
+    },
+    # Nuage VSP SDN plugin specific test data
+    "nuagevsp": {
+        # Services supported by the Nuage VSP plugin for Isolated networks
+        "isolated_network_offering": {
+            "name": 'nuage_marvin',
+            "displaytext": 'nuage_marvin',
+            "guestiptype": 'Isolated',
+            "supportedservices": 'Dhcp,SourceNat,Connectivity,StaticNat,UserData,Firewall',
+            "traffictype": 'GUEST',
+            "availability": 'Optional',
+            "serviceProviderList": {
+                "Dhcp": 'NuageVsp',
+                "StaticNat": 'NuageVsp',
+                "SourceNat": 'NuageVsp',
+                "Firewall": 'NuageVsp',
+                "Connectivity": 'NuageVsp',
+                "UserData": 'VirtualRouter'
+            },
+            "serviceCapabilityList": {
+                    "SourceNat": {"SupportedSourceNatTypes": "perzone"}
+            }
+        },
+        # Services supported by the Nuage VSP plugin for VPC networks
+        "vpc_network_offering": {
+            "name": 'nuage_vpc_marvin',
+            "displaytext": 'nuage_vpc_marvin',
+            "guestiptype": 'Isolated',
+            "supportedservices": 'Dhcp,StaticNat,SourceNat,NetworkACL,Connectivity,UserData',
+            "traffictype": 'GUEST',
+            "availability": 'Optional',
+            "useVpc": 'on',
+            "ispersistent": 'True',
+            "serviceProviderList": {
+                "Dhcp": "NuageVsp",
+                "StaticNat": "NuageVsp",
+                "SourceNat": "NuageVsp",
+                "NetworkACL": "NuageVspVpc",
+                "Connectivity": "NuageVsp",
+                "UserData": "NuageVspVpc"
+            },
+            "serviceCapabilityList": {
+                "SourceNat": {"SupportedSourceNatTypes": "perzone"}
+            }
+        },
+        # Services supported by the Nuage VSP plugin for VPCs
+        "vpc_offering": {
+            "name": 'Nuage VSP VPC offering',
+            "displaytext": 'Nuage VSP VPC offering',
+            "supportedservices": 'Dhcp,StaticNat,SourceNat,NetworkACL,Connectivity,UserData',
+            "serviceProviderList": {
+                "Dhcp": "NuageVsp",
+                "StaticNat": "NuageVsp",
+                "SourceNat": "NuageVsp",
+                "NetworkACL": "NuageVspVpc",
+                "Connectivity": "NuageVsp",
+                "UserData": "NuageVspVpc"
+            }
+        },
+        # Services supported by the Nuage VSP plugin for VPC withou userdata
+        "vpc_network_offering_nodhcp": {
+            "name": 'nuage_vpc_marvin',
+            "displaytext": 'nuage_vpc_marvin',
+            "guestiptype": 'Isolated',
+            "supportedservices": 'Dhcp,StaticNat,SourceNat,NetworkACL,Connectivity',
+            "traffictype": 'GUEST',
+            "availability": 'Optional',
+            "useVpc": 'on',
+            "ispersistent": 'True',
+            "serviceProviderList": {
+                "Dhcp": "NuageVsp",
+                "StaticNat": "NuageVsp",
+                "SourceNat": "NuageVsp",
+                "NetworkACL": "NuageVspVpc",
+                "Connectivity": "NuageVsp",
+            },
+            "serviceCapabilityList": {
+                "SourceNat": {"SupportedSourceNatTypes": "perzone"}
+            }
+        },
+        # Services supported by the Nuage VSP plugin for VPCs
+        "vpc_offering_nodhcp": {
+            "name": 'Nuage VSP VPC offering',
+            "displaytext": 'Nuage VSP VPC offering',
+            "supportedservices": 'Dhcp,StaticNat,SourceNat,NetworkACL,Connectivity',
+            "serviceProviderList": {
+                "Dhcp": "NuageVsp",
+                "StaticNat": "NuageVsp",
+                "SourceNat": "NuageVsp",
+                "NetworkACL": "NuageVspVpc",
+                "Connectivity": "NuageVsp",
+            }
+        }
+
     }
 }

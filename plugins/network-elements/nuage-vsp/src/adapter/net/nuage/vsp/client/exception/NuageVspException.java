@@ -47,6 +47,10 @@ public class NuageVspException extends Exception {
         super(errorMessage);
     }
 
+    public NuageVspException(String errorMessage, Throwable cause) {
+        super(errorMessage, cause);
+    }
+
     public int getHttpErrorCode() {
         return httpErrorCode;
     }

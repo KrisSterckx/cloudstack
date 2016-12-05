@@ -16,6 +16,9 @@
 // under the License.
 package org.apache.cloudstack.api;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class ApiConstants {
     public static final String ACCOUNT = "account";
     public static final String ACCOUNTS = "accounts";
@@ -614,6 +617,10 @@ public class ApiConstants {
     public static final String STRECHED_L2_SUBNET = "strechedl2subnet";
     public static final String NETWORK_SPANNED_ZONES = "zonesnetworkspans";
     public static final String PHYSICAL_SIZE = "physicalsize";
+    public static final int DHCP_OPTION_URL = 114;
+    public static final int DHCP_OPTION_DOMAIN_NAME = 15;
+    public static final int DHCP_OPTION_HOSTNAME = 12;
+    public static List<Integer> supportedDhcpOptions = Arrays.asList(DHCP_OPTION_URL);
 
     public enum HostDetails {
         all, capacity, events, stats, min;

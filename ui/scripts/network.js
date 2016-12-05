@@ -5697,7 +5697,11 @@
                                         dataType: "json",
                                         async: true,
                                         success: function(json) {
-                                            var item = json.listroutersresponse.router[0];
+                                            var items = json.listroutersresponse.router;
+                                            var item = "";
+                                            if(items != null) {
+                                                item = items[0];
+                                            }
 
                                             args.response.success({
                                                 actionFilter: cloudStack.sections.system.routerActionFilter,

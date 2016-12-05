@@ -1,5 +1,9 @@
 package net.nuage.vsp.client.common.model;
 
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.collect.Lists;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -54,16 +58,31 @@ public enum NuageVspEntity {
     WAN_SERVICES("services", NuageVspAttribute.ID, NuageVspAttribute.WAN_SERVICE_VPN_CONNECT_ID),
     VPN_CONNECTION("vpnconnections", NuageVspAttribute.ID, NuageVspAttribute.VPN_CONNECTION_WANSERVICE_ID, NuageVspAttribute.VPN_CONNECTION_WANSERVICE_NAME),
     ENTERPRISEPERMISSION("enterprisepermissions", NuageVspAttribute.ID, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYID, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ENTITYYPE, NuageVspAttribute.ENTERPRISEPERMISSION_PERMITTED_ACTION),
-    CLOUD_MGMT_SYSTEMS("cms", NuageVspAttribute.ID)
-    ;
+    CLOUD_MGMT_SYSTEMS("cms", NuageVspAttribute.ID);
+
+    public static final Function<NuageVspAttribute, String> GET_ATTRIBUTE_NAME = new Function<NuageVspAttribute, String>() {
+        @Override
+        public String apply(NuageVspAttribute nuageVspAttribute) {
+            return nuageVspAttribute.getAttributeName();
+        }
+    };
 
     private String entityType;
 
-    private NuageVspAttribute[] attributes;
+    private List<NuageVspAttribute> attributes;
+
+    private Optional<NuageVspAttribute> name, description;
+
+    private NuageVspEntity(String entityType, Optional<NuageVspAttribute> name, Optional<NuageVspAttribute> description, NuageVspAttribute... attributes) {
+        this.entityType = entityType;
+        this.name = name;
+        this.description = description;
+        this.attributes = Arrays.asList(attributes);
+    }
 
     private NuageVspEntity(String entityType, NuageVspAttribute... attributes) {
         this.entityType = entityType;
-        this.attributes = attributes;
+        this.attributes = Arrays.asList(attributes);
     }
 
     private static Map<String, NuageVspEntity> lookup = new HashMap<String, NuageVspEntity>();
@@ -74,6 +93,8 @@ public enum NuageVspEntity {
         }
     }
 
+
+
     public String getEntityType() {
         return entityType;
     }
@@ -82,17 +103,21 @@ public enum NuageVspEntity {
         this.entityType = entityType;
     }
 
-    public NuageVspAttribute[] getAttributes() {
+    public List<NuageVspAttribute> getAttributes() {
         return attributes;
     }
 
-    public void setAttributes(NuageVspAttribute[] attributes) {
+    public void setAttributes(List<NuageVspAttribute> attributes) {
         this.attributes = attributes;
     }
 
     public static List<NuageVspAttribute> getAttributes(String entityType) {
         NuageVspEntity entity = lookup.get(entityType);
-        return Arrays.asList(entity.getAttributes());
+        return entity.getAttributes();
+    }
+
+    public List<String> getAttributeNameList() {
+        return Lists.transform(getAttributes(), GET_ATTRIBUTE_NAME);
     }
 
     public static NuageVspEntity lookup(String entityType) throws Exception {
@@ -101,6 +126,22 @@ public enum NuageVspEntity {
             throw new Exception("Entity " + entityType + " is not supported by Nuage");
         }
         return nuageEntity;
+    }
+
+    public Optional<NuageVspAttribute> getNameAttribute() {
+        return name;
+    }
+
+    public Optional<NuageVspAttribute> getDescriptionAttribute() {
+        return description;
+    }
+
+    public String getName() {
+        return name.transform(GET_ATTRIBUTE_NAME).or("");
+    }
+
+    public String getDescription() {
+        return description.transform(GET_ATTRIBUTE_NAME).or("");
     }
 
 }

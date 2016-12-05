@@ -1,0 +1,45 @@
+{
+    "vpcOffering": {
+        "name": "nuageVpcOfferingWithoutUserData",
+        "serviceOfferings": {
+            "Dhcp": "NuageVsp",
+            "SourceNat": "NuageVsp",
+            "Connectivity": "NuageVsp",
+            "NetworkACL": "NuageVspVpc",
+            "StaticNat": "NuageVsp"
+        }
+    },
+    "vpcTierOffering": {
+        "name": "nuageVpcTierOfferingWithoutUserData",
+        "serviceOfferings": {
+            "Dhcp": "NuageVsp",
+            "SourceNat": "NuageVsp",
+            "Connectivity": "NuageVsp"
+        },
+        "isPersistent": "True",
+        "conserveMode": "False",
+        "trafficType": "Guest",
+        "guestIpType": "Isolated"
+    },
+    "dbSvr": {
+        "dbSvr": "localhost", 
+        "passwd": "cloud", 
+        "db": "cloud", 
+        "port": 3306, 
+        "user": "cloud"
+    }, 
+    "logger": 
+        {
+            "LogFolderPath": "/tmp/marvin/"
+        },
+    "mgtSvr": [
+        {
+            "passwd": "password",
+            "mgtSvrIp": "localhost", 
+            "port": 8080,
+            "apiKey": "jAQc7pGrfPPrNW9HCkLSFRdRM1wOThGyN7fHS0W5T985Ii1Xho3OxfYdtSUHeRMcfu-c2ygybiEHuhrnCA6c9w",
+            "securityKey": "RWg2UuFwEGrRiAQrZfGqx1LtZ_FR_Zg4Uwlj778g8HdCyXY41LlTATzFPkaI5TQcgmb0q2hTEoAhS3M7urhRDw",
+            "user": "root"
+        }
+    ]
+}

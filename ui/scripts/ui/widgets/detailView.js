@@ -510,7 +510,9 @@
                     }
                 });
 
-                $token.html(_s(tags_value));
+                if ($token != null) {
+                    $token.html(_s(tags_value));
+                }
             };
 
             var removeEditForm = function() {

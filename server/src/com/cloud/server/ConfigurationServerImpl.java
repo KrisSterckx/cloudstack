@@ -648,7 +648,7 @@ public class ConfigurationServerImpl extends ManagerBase implements Configuratio
                     FileOutputStream fo = new FileOutputStream(tmpKeystorePath);
                     fo.write(storeBytes);
                     fo.close();
-                    Script script = new Script(true, "cp", 5000, null);
+                    Script script = new Script(true, "cp", 30000, null);
                     script.add("-f");
                     script.add(tmpKeystorePath);
 

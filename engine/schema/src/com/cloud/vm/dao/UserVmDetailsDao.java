@@ -18,8 +18,12 @@ package com.cloud.vm.dao;
 
 import org.apache.cloudstack.resourcedetail.ResourceDetailsDao;
 
+import java.util.Map;
+
 import com.cloud.utils.db.GenericDao;
 import com.cloud.vm.UserVmDetailVO;
 
 public interface UserVmDetailsDao extends GenericDao<UserVmDetailVO, Long>, ResourceDetailsDao<UserVmDetailVO> {
+
+    Map<Integer, String> listDhcpOptions(Long resourceId);
 }

@@ -426,7 +426,7 @@ class VirtualMachine:
 
         if ipaddress:
             cmd.ipaddress = ipaddress
-        elif ipaddress in services:
+        elif "ipaddress" in services:
             cmd.ipaddress = services["ipaddress"]
 
         if securitygroupids:
@@ -465,6 +465,9 @@ class VirtualMachine:
 
         if rootdisksize >= 0:
             cmd.details[0]["rootdisksize"] = rootdisksize
+
+        if "details" in services:
+            cmd.details[0].update(services["details"])
 
         if group:
             cmd.group = group

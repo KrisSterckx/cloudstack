@@ -526,6 +526,11 @@ public class MockNetworkManagerImpl extends ManagerBase implements NetworkOrches
         // TODO Auto-generated method stub
     }
 
+    @Override
+    public void configureExtraDhcpOptions(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) {
+
+    }
+
     /* (non-Javadoc)
      * @see com.cloud.network.NetworkManager#prepare(com.cloud.vm.VirtualMachineProfile, com.cloud.deploy.DeployDestination, com.cloud.vm.ReservationContext)
      */

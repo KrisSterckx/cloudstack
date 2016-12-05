@@ -461,6 +461,11 @@ public class MidoNetElement extends AdapterBase implements ConnectivityProvider,
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    @Override
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        return false;
+    }
+
     private void removeMidonetStaticNAT(RuleChain preFilter, RuleChain preNat, RuleChain postNat, String floatingIp, String fixedIp, Router providerRouter) {
 
         // Delete filter (firewall) rules for this IP

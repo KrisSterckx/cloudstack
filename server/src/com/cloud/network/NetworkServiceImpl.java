@@ -1382,7 +1382,7 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
                         network = _vpcMgr.createVpcGuestNetwork(networkOfferingId, name, displayText, gateway, cidr, vlanId, networkDomain, owner, sharedDomainId, pNtwk, zoneId,
                                 aclType, subdomainAccess, vpcId, aclId, caller, displayNetwork);
                     } else {
-                        if (_configMgr.isOfferingForVpc(ntwkOff)) {
+                        if (!_configMgr.isOfferingForIsolatedNetwork(ntwkOff)) {
                             throw new InvalidParameterValueException("Network offering can be used for VPC networks only");
                         }
                         if (ntwkOff.getInternalLb()) {
@@ -2074,8 +2074,8 @@ public class NetworkServiceImpl extends ManagerBase implements  NetworkService {
             }
             //can't update from vpc to non-vpc network offering
             boolean forVpcNew = _configMgr.isOfferingForVpc(networkOffering);
-            boolean vorVpcOriginal = _configMgr.isOfferingForVpc(_entityMgr.findById(NetworkOffering.class, oldNetworkOfferingId));
-            if (forVpcNew != vorVpcOriginal) {
+            boolean forVpcOriginal = _configMgr.isOfferingForVpc(_entityMgr.findById(NetworkOffering.class, oldNetworkOfferingId));
+            if (forVpcNew != forVpcOriginal) {
                 String errMsg = forVpcNew ? "a vpc offering " : "not a vpc offering";
                 throw new InvalidParameterValueException("Can't update as the new offering is " + errMsg);
             }

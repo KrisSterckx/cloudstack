@@ -902,6 +902,11 @@ NetworkMigrationResponder, AggregatedCommandExecutor {
     }
 
     @Override
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        return false;
+    }
+
+    @Override
     public boolean addDhcpEntry(Network network, NicProfile nic, VirtualMachineProfile vm, DeployDestination dest, ReservationContext context)
             throws ConcurrentOperationException, InsufficientCapacityException, ResourceUnavailableException {
         if (canHandle(network, Service.Dhcp)) {

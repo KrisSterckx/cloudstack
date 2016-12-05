@@ -165,4 +165,11 @@ public interface VpcManager {
         validateNtwkOffForNtwkInVpc(Long networkId, long newNtwkOffId, String newCidr, String newNetworkDomain, Vpc vpc, String gateway, Account networkOwner, Long aclId);
 
     List<PrivateGateway> getVpcPrivateGateways(long vpcId);
+
+    /**
+     * Releases the source NAT ip from the vpc. If no source NAT ip is present nothing happens.
+     * @param accountId
+     * @param vpcId
+     */
+    void removeSourceNatFromVpc(final Long accountId, final long vpcId);
 }

@@ -43,6 +43,7 @@ import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationSe
 import org.apache.cloudstack.framework.config.ConfigDepot;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.log4j.Logger;
 
 import com.cloud.configuration.Config;
@@ -358,7 +359,7 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
             svcProviderMap.put(Service.NetworkACL, defaultProviders);
         }
 
-        svcProviderMap.put(Service.Gateway, defaultProviders);
+        //svcProviderMap.put(Service.Gateway, defaultProviders);
 
         if (serviceProviders != null) {
             for (Entry<String, List<String>> serviceEntry : serviceProviders.entrySet()) {
@@ -384,6 +385,12 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
                             "offering, can't add a provider to it");
                 }
             }
+        }
+
+        // add gateway provider (if sourceNat provider is enabled)
+        final Set<Provider> sourceNatServiceProviders = svcProviderMap.get(Service.SourceNat);
+        if (CollectionUtils.isNotEmpty(sourceNatServiceProviders)) {
+            svcProviderMap.put(Service.Gateway, sourceNatServiceProviders);
         }
 
         validateConnectivtyServiceCapablitlies(svcProviderMap.get(Service.Connectivity), serviceCapabilitystList);
@@ -2240,7 +2247,10 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         _accountMgr.checkAccess(caller, null, true, owner, vpc);
 
         boolean isSourceNat = false;
-        if (getExistingSourceNatInVpc(owner.getId(), vpcId) == null) {
+
+        if (_vpcOffServiceDao.findByServiceProviderAndOfferingId(Service.SourceNat.getName(), Provider.VPCVirtualRouter.getName(), vpc.getVpcOfferingId()) == null) {
+              s_logger.debug("SourceNat in this VPC is not handled by VpcVirtualRouter. So, do not allocate source NAT");
+        } else if (getExistingSourceNatInVpc(owner.getId(), vpcId) == null) {
             isSourceNat = true;
         }
 
@@ -2250,15 +2260,15 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
         Transaction.execute(new TransactionCallbackNoReturn() {
             @Override
             public void doInTransactionWithoutResult(TransactionStatus status) {
-        IPAddressVO ip = _ipAddressDao.findById(ipId);
-        //update ip address with networkId
-        ip.setVpcId(vpcId);
+                IPAddressVO ip = _ipAddressDao.findById(ipId);
+                //update ip address with networkId
+                ip.setVpcId(vpcId);
                 ip.setSourceNat(isSourceNatFinal);
 
-        _ipAddressDao.update(ipId, ip);
+                _ipAddressDao.update(ipId, ip);
 
-        //mark ip as allocated
-        _ipAddrMgr.markPublicIpAsAllocated(ip);
+                //mark ip as allocated
+                _ipAddrMgr.markPublicIpAsAllocated(ip);
             }
         });
 
@@ -2340,6 +2350,17 @@ public class VpcManagerImpl extends ManagerBase implements VpcManager, VpcProvis
             _ntwkDao.update(guestNetwork.getId(), (NetworkVO)guestNetwork);
         }
         return guestNetwork;
+    }
+
+    @Override
+    public void removeSourceNatFromVpc(final Long accountId, final long vpcId) {
+        if(accountId != null){
+            final Account owner = _entityMgr.findById(Account.class, accountId);
+            IPAddressVO sourceNatIp = getExistingSourceNatInVpc(owner.getId(), vpcId);
+            if (sourceNatIp != null) {
+                _ipAddrMgr.disassociatePublicIpAddress(sourceNatIp.getId(), _accountMgr.getSystemUser().getId(), owner);
+            }
+        }
     }
 
     protected IPAddressVO getExistingSourceNatInVpc(long ownerId, long vpcId) {

@@ -3569,7 +3569,7 @@
                                                 name: 'NetworkACL',
                                                 provider: [
                                                        {name: 'VpcVirtualRouter'},
-                                                       {name: 'NuageVsp'}]
+                                                       {name: 'NuageVspVpc'}]
                                             });
                                             networkServiceObjs.push({
                                                 name: 'PortForwarding',

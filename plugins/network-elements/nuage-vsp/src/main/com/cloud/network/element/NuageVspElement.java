@@ -15,6 +15,7 @@ package com.cloud.network.element;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,11 +28,15 @@ import com.cloud.network.dao.NetworkVO;
 import com.cloud.util.ExperimentalFeatureLoader;
 import com.cloud.util.NuageVspUtil;
 import com.cloud.utils.Pair;
+
 import net.nuage.vsp.client.common.RequestType;
 import net.nuage.vsp.client.common.model.ACLRule;
 import net.nuage.vsp.client.common.model.ACLRule.ACLAction;
 import net.nuage.vsp.client.common.model.ACLRule.ACLState;
 import net.nuage.vsp.client.common.model.ACLRule.ACLTrafficType;
+import net.nuage.vsp.client.common.model.DhcpOption;
+import net.nuage.vsp.client.common.model.DhcpOptions;
+import net.nuage.vsp.client.common.model.NetworkDetails;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspAttribute;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
@@ -40,6 +45,7 @@ import net.nuage.vsp.client.rest.NuageVspApi;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
+import org.apache.cloudstack.api.ApiConstants;
 import org.apache.cloudstack.api.InternalIdentity;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.network.ExternalNetworkDeviceManager;
@@ -69,7 +75,6 @@ import com.cloud.network.Network.Provider;
 import com.cloud.network.Network.Service;
 import com.cloud.network.NetworkModel;
 import com.cloud.network.Networks;
-import com.cloud.network.NuageVspDeviceVO;
 import com.cloud.network.PhysicalNetworkServiceProvider;
 import com.cloud.network.PublicIpAddress;
 import com.cloud.network.dao.FirewallRulesCidrsDao;
@@ -235,17 +240,15 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             return false;
         }
 
-        if (network.getBroadcastUri() == null) {
-            s_logger.info("Nic has no broadcast Uri with the virtual router IP for network " + network.getName());
-            return false;
-        }
+        //Update the broadcast Uri
+        _nuageVspManager.updateNetworkBroadcastUri(network);
 
         Domain networksDomain = _domainDao.findById(network.getDomainId());
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser;
         String enterpriseId;
         try {
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
         } catch (NuageVspAPIUtilException exception) {
             s_logger.error("Exception occurred while executing implement API. So, FIP clean up could not be execued successfully. Retry restarting the network "
@@ -326,8 +329,15 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
 
             List<String> dnsServers = _nuageVspManager.getDnsDetails(network);
             try {
+                String domainName = network.getNetworkDomain();
+                // We can not have a different domain name in the tiers
+                if (domainName == null && network.getVpcId() != null) {
+                    domainName = _vpcDao.findById(network.getVpcId()).getNetworkDomain();
+                }
+                DhcpOptions dhcpOptions = new DhcpOptions(dnsServers, domainName);
+
                 s_logger.debug("Started Sync of DNS Server setting for network " + network.getName() + " at " + new Date());
-                NuageVspApiUtil.createDhcpOptions(network.getName(), dnsServers, network.getUuid(), nuageVspAPIParamsAsCmsUser, vspNetworkId,
+                NuageVspApiUtil.createDhcpOptions(network.getName(), dhcpOptions, network.getUuid(), nuageVspAPIParamsAsCmsUser, vspNetworkId,
                         attachedNetworkType.equals(NuageVspEntity.L2DOMAIN) ? NuageVspEntity.L2DOMAIN : NuageVspEntity.SUBNET, "", false, new StringBuffer());
             } catch (Exception e1) {
                 s_logger.warn("Failed to update the DNS Server information for network " + network.getName());
@@ -398,7 +408,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             Domain networksDomain = _domainDao.findById(network.getDomainId());
             NetworkOffering networkOffering = _ntwkOfferingDao.findById(network.getNetworkOfferingId());
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
             boolean shared = networkOffering.getGuestType() == Network.GuestType.Shared;
             return usesPreconfiguredDomainTemplate(nuageVspAPIParamsAsCmsUser, enterpriseId, false, shared, network.getUuid());
@@ -413,7 +423,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         try {
             Domain networksDomain = _domainDao.findById(network.getDomainId());
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
             String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParamsAsCmsUser);
             return usesPreconfiguredDomainTemplate(nuageVspAPIParamsAsCmsUser, enterpriseId, true, false, vpc.getUuid());
         } catch (NuageVspAPIUtilException exception) {
@@ -590,6 +600,57 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
     }
 
     @Override
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        if (extradhcpOptions != null) {
+            NuageVspAPIParams nuageVspAPIParamsAsCmsUser = null;
+            try {
+                String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+                nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+            } catch (NuageVspAPIUtilException e) {
+                s_logger.error("[setDhcpOptionsForVM] Failed to retrieve nuageVspParamsAsCmdUser with error msg: " + e.getMessage());
+            }
+
+            DhcpOptions dhcpOptions = new DhcpOptions();
+            List<Integer> deleteCurrentDhcpOptions = extractDhcpOptions(extradhcpOptions, ApiConstants.supportedDhcpOptions, dhcpOptions);
+            NetworkDetails networkDetails = null;
+            String vportVsdId = null;
+            try {
+                networkDetails = _nuageVspManager.getNetworkDetails(network);
+                vportVsdId = NuageVspApiUtil.findEntityIdByExternalUuid(networkDetails.getSubnetType(), networkDetails.getSubnetId(), NuageVspEntity.VPORT, nicUuid, nuageVspAPIParamsAsCmsUser);
+
+                NuageVspApiUtil.removeAllDhcpOptionsWithCode(NuageVspEntity.VPORT, nicUuid, vportVsdId, nuageVspAPIParamsAsCmsUser, deleteCurrentDhcpOptions);
+                NuageVspApiUtil.createDhcpOptions(network.getName(), nicUuid, nuageVspAPIParamsAsCmsUser, vportVsdId, NuageVspEntity.VPORT, "", NuageVspApiUtil.FetchAndOrDelete.FETCH, new StringBuffer(), dhcpOptions);
+            } catch (NuageVspAPIUtilException e) {
+                s_logger.error("[setDhcpOptionsForVM] Failed to find vportVsdId with error msg:" + e.getMessage());
+            } catch (Exception e) {
+                s_logger.error("[setDhcpOptionsForVM] Failed while setting DHCP options with error msg: " + e.getMessage());
+            }
+
+        }
+
+        return true;
+    }
+
+    private List<Integer> extractDhcpOptions(Map<Integer, String> actualDhcpOptions, final Iterable<Integer> supportedDhcpOptions, DhcpOptions toBeAddedDhcpOptions) {
+        List<Integer> deleteCurrentDhcpOption = new LinkedList<>();
+
+        for(Integer dhcpCode : supportedDhcpOptions) {
+            String dhcpCurrentCodeOption = actualDhcpOptions.get(dhcpCode);
+            if(StringUtils.isNotBlank(dhcpCurrentCodeOption)) {
+                s_logger.info("DHCP option " + dhcpCode + " with value: " + dhcpCurrentCodeOption);
+                DhcpOption option = new DhcpOption(dhcpCode, dhcpCurrentCodeOption);
+                toBeAddedDhcpOptions.addOption(option);
+            } else { //in case the details for 114 are set to an empty string or is not specified
+                deleteCurrentDhcpOption.add(dhcpCode);
+            }
+        }
+
+        return deleteCurrentDhcpOption;
+    }
+
+
+
+    @Override
     @DB
     public boolean applyStaticNats(Network config, List<? extends StaticNat> rules) throws ResourceUnavailableException {
         if (!canHandle(config, Service.StaticNat)) {
@@ -603,7 +664,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         NuageVspAPIParams nuageVspAPIParamsAsCmsUser;
         try {
             String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(config.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(config.getPhysicalNetworkId()), nuageVspCmsId);
+            nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(config.getPhysicalNetworkId()), nuageVspCmsId);
         } catch (NuageVspAPIUtilException e) {
             throw new ResourceUnavailableException(e.getMessage(), Domain.class, dc.getId());
         }
@@ -777,7 +838,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser = null;
             try {
                 String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
-                nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
+                nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(network.getPhysicalNetworkId()), nuageVspCmsId);
                 String vpcOrSubnetUuid = null;
 
                 boolean usesPreConfiguredDomainTemplate;
@@ -1233,17 +1294,10 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
         return new DeleteHostAnswer(true);
     }
 
-    protected HostVO getNuageVspHost(Long physicalNetworkId) throws NuageVspAPIUtilException {
-        // TODO: Cache this as we don't want a DB hit everytime we send a message to VSD
-        HostVO nuageVspHost;
-        List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByPhysicalNetwork(physicalNetworkId);
-        if (nuageVspDevices != null && (!nuageVspDevices.isEmpty())) {
-            NuageVspDeviceVO config = nuageVspDevices.iterator().next();
-            nuageVspHost = _hostDao.findById(config.getHostId());
-            _hostDao.loadDetails(nuageVspHost);
-        } else {
-            throw new NuageVspAPIUtilException("Nuage VSD is not configured on physical network " + physicalNetworkId);
-        }
-        return nuageVspHost;
+
+    public NuageVspAPIParams getNuageVspAPIParameters(HostVO host, String nuageVspCmsId) {
+        Map<String, String> hostDetails = host.getDetails();
+        return NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(hostDetails, nuageVspCmsId);
     }
+
 }

@@ -2094,6 +2094,14 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
 
         _vmDao.updateVM(id, displayName, ha, osTypeId, userData, isDisplayVmEnabled, isDynamicallyScalable, customId, hostName, instanceName);
 
+        List<? extends Nic> nics = _nicDao.listByVmId(vm.getId());
+        Map<Integer, String> dhcpOptions = _uservmDetailsDao.listDhcpOptions(vm.getId());
+
+        for (Nic nic : nics) {
+            NetworkVO network = _networkDao.findById(nic.getNetworkId());
+            _networkMgr.configureExtraDhcpOptions(network, dhcpOptions, nic.getUuid());
+        }
+
         if (updateUserdata) {
             boolean result = updateUserDataInternal(_vmDao.findById(id));
             if (result) {
@@ -3121,6 +3129,7 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
                 }
                 _vmDao.saveDetails(vm);
 
+
                 s_logger.debug("Allocating in the DB for vm");
                 DataCenterDeployment plan = new DataCenterDeployment(zone.getId());
 
@@ -3138,6 +3147,8 @@ public class UserVmManagerImpl extends ManagerBase implements UserVmManager, Vir
                     _orchSrvc.createVirtualMachine(vm.getUuid(), Long.toString(owner.getAccountId()), Long.toString(template.getId()), hostName, displayName, hypervisorType.name(),
                             offering.getCpu(), offering.getSpeed(), offering.getRamSize(), diskSize, computeTags, rootDiskTags, networkNicMap, plan, rootDiskSize);
                 }
+
+
 
                 if (s_logger.isDebugEnabled()) {
                     s_logger.debug("Successfully allocated DB entry for " + vm);

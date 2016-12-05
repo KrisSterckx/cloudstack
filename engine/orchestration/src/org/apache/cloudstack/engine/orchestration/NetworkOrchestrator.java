@@ -38,6 +38,8 @@ import javax.inject.Inject;
 import javax.naming.ConfigurationException;
 
 import com.cloud.network.Networks;
+
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.cloudstack.acl.ControlledEntity.ACLType;
 import org.apache.cloudstack.context.CallContext;
@@ -169,7 +171,7 @@ import com.cloud.user.ResourceLimitService;
 import com.cloud.user.User;
 import com.cloud.user.dao.AccountDao;
 import com.cloud.utils.Pair;
-import com.cloud.utils.StringUtils;
+
 import com.cloud.utils.component.AdapterBase;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.concurrency.NamedThreadFactory;
@@ -206,6 +208,7 @@ import com.cloud.vm.dao.NicIpAliasVO;
 import com.cloud.vm.dao.NicSecondaryIpDao;
 import com.cloud.vm.dao.NicSecondaryIpVO;
 import com.cloud.vm.dao.UserVmDao;
+import com.cloud.vm.dao.UserVmDetailsDao;
 import com.cloud.vm.dao.VMInstanceDao;
 
 /**
@@ -350,6 +353,8 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
     PortableIpDao _portableIpDao;
     @Inject
     ConfigDepot _configDepot;
+    @Inject
+    UserVmDetailsDao _userVmDetailsDao;
 
     protected StateMachine2<Network.State, Network.Event, Network> _stateMachine;
     ScheduledExecutorService _executor;
@@ -1254,6 +1259,14 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
         return true;
     }
 
+    @Override
+    public void configureExtraDhcpOptions(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        if(_networkModel.areServicesSupportedInNetwork(network.getId(), Service.Dhcp)) {
+            DhcpServiceProvider sp = getDhcpServiceProvider(network);
+            sp.setDhcpOptionsForVM(network, extradhcpOptions, nicUuid);
+        }
+    }
+
     @DB
     protected void updateNic(final NicVO nic, final long networkId, final int count) {
         Transaction.execute(new TransactionCallbackNoReturn() {
@@ -1310,6 +1323,7 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
     public NicProfile prepareNic(VirtualMachineProfile vmProfile, DeployDestination dest, ReservationContext context, long nicId, Network network)
             throws InsufficientVirtualNetworkCapacityException, InsufficientAddressCapacityException, ConcurrentOperationException, InsufficientCapacityException,
             ResourceUnavailableException {
+
 
         Integer networkRate = _networkModel.getNetworkRate(network.getId(), vmProfile.getId());
         NetworkGuru guru = AdapterBase.getAdapterByName(networkGurus, network.getGuruName());
@@ -1373,6 +1387,8 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
 
         profile.setSecurityGroupEnabled(_networkModel.isSecurityGroupSupportedInNetwork(network));
         guru.updateNicProfile(profile, network);
+        Map<Integer, String> dhcpOptions = _userVmDetailsDao.listDhcpOptions(vmProfile.getId());
+        configureExtraDhcpOptions(network, dhcpOptions, profile.getUuid());
         return profile;
     }
 
@@ -1680,6 +1696,10 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
         nic.setState(Nic.State.Deallocating);
         _nicDao.update(nic.getId(), nic);
         NetworkVO network = _networksDao.findById(nic.getNetworkId());
+        if (network == null) {
+            s_logger.error("[removeNic] nic with id " + nic.getId() + " failed. Nic is attached to an already removed network with network id " + nic.getNetworkId() + ". Trying to recover from incorrect CS DB.");
+            network = _networksDao.findByIdIncludingRemoved(nic.getNetworkId());
+        }
         NicProfile profile = new NicProfile(nic, network, null, null, null, _networkModel.isSecurityGroupSupportedInNetwork(network), _networkModel.getNetworkTag(
                 vm.getHypervisorType(), network));
 

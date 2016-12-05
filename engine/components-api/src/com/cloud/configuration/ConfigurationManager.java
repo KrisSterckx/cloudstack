@@ -53,6 +53,8 @@ public interface ConfigurationManager {
      */
     boolean isOfferingForVpc(NetworkOffering offering);
 
+    boolean isOfferingForIsolatedNetwork(NetworkOffering offering);
+
     Integer getNetworkOfferingNetworkRate(long networkOfferingId, Long dataCenterId);
 
     Integer getServiceOfferingNetworkRate(long serviceOfferingId, Long dataCenterId);

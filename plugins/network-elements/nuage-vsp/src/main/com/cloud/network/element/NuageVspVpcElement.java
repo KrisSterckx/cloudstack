@@ -141,11 +141,14 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
             return false;
         }
 
-        Map<VirtualMachineProfile.Param, Object> params = new HashMap<VirtualMachineProfile.Param, Object>(1);
-        params.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
+        if (_nuageVspManager.needVirtualRouter(vpc)) {
+            Map<VirtualMachineProfile.Param, Object> params = new HashMap<>(1);
+            params.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
 
-        _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
-
+            _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
+        } else {
+            _vpcMgr.removeSourceNatFromVpc(vpc.getAccountId(), vpc.getId());
+        }
         return true;
     }
 
@@ -158,17 +161,16 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         s_logger.debug("Handling shutdownVpc() call back to delete the DomainTemplate associated to VPC " + vpc.getName() + " from VSP");
         String vspNetworkId = null;
         // Clean up all the network that was created
-
-        List<DomainRouterVO> routers = _routerDao.listByVpcId(vpc.getId());
-        if (routers == null || routers.isEmpty()) {
-            return true;
-        }
         List<String> domainRouterUuid = new ArrayList<String>();
         boolean result = true;
-        for (DomainRouterVO router : routers) {
-            result = result && (_vpcRouterMgr.destroyRouter(router.getId(), context.getAccount(), context.getCaller().getId()) != null);
-            if (result) {
-                domainRouterUuid.add(router.getUuid());
+
+        List<DomainRouterVO> routers = _routerDao.listByVpcId(vpc.getId());
+        if (routers != null && !routers.isEmpty()) {
+            for (DomainRouterVO router : routers) {
+                result = result && (_vpcRouterMgr.destroyRouter(router.getId(), context.getAccount(), context.getCaller().getId()) != null);
+                if (result) {
+                    domainRouterUuid.add(router.getUuid());
+                }
             }
         }
 
@@ -180,7 +182,7 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         try {
             if (vpc.getState().equals(Vpc.State.Inactive)) {
                 String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(guestPhysicalNetworkId, _nuageVspDao, _configDao);
-                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(getNuageVspHost(guestPhysicalNetworkId), nuageVspCmsId);
+                NuageVspAPIParams nuageVspAPIParamsAsCmsUser = NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(_nuageVspManager.getNuageVspHost(guestPhysicalNetworkId), nuageVspCmsId);
                 if (domainRouterUuid.size() > 0) {
                     for (String routerUuid : domainRouterUuid) {
                         String vmJsonString = NuageVspApiUtil.getVMDetails(domain.getUuid() + "(Enterprise uuid)", routerUuid, nuageVspAPIParamsAsCmsUser);
@@ -203,7 +205,9 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
                     //get the L3 DomainTemplate with externalUuid
                     String domainTemplateId = NuageVspApiUtil.findFieldValueByExternalUuid(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN,
                             vpc.getUuid(), NuageVspAttribute.DOMAIN_TEMPLATE_ID.getAttributeName(), nuageVspAPIParamsAsCmsUser);
-                    if (domainTemplateId == null) return true;
+                    if (domainTemplateId == null) {
+                        return true;
+                    }
 
                     String vpcDomainTemplateName = _configDao.getValue(NuageVspManager.NuageVspVpcDomainTemplateName.key());
                     String vpcDomainTemplateEntity = NuageVspApiUtil.findEntityUsingFilter(NuageVspEntity.ENTERPRISE, enterpriseId, NuageVspEntity.DOMAIN_TEMPLATE,
@@ -291,35 +295,44 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         Map<VirtualMachineProfile.Param, Object> params = new HashMap<VirtualMachineProfile.Param, Object>(1);
         params.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
 
-        List<DomainRouterVO> routers = _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
-        if ((routers == null) || (routers.size() == 0)) {
-            s_logger.warn("Can't find at least one running router!");
-            return false;
-        }
+        //Update the broadcast Uri
+        _nuageVspManager.updateNetworkBroadcastUri(network);
 
-        if (routers.size() > 1) {
-            s_logger.warn("Found more than one router in vpc " + vpc);
-            return false;
-        }
-
-        DomainRouterVO router = routers.get(0);
-        //Add router to guest network if needed
-        if (!_networkMgr.isVmPartOfNetwork(router.getId(), network.getId())) {
-            Map<VirtualMachineProfile.Param, Object> paramsForRouter = new HashMap<VirtualMachineProfile.Param, Object>(1);
-            if (network.getState() == State.Setup) {
-                paramsForRouter.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
-            }
-            if (!_vpcRouterMgr.addVpcRouterToGuestNetwork(router, network, false, paramsForRouter)) {
-                s_logger.warn("Failed to add VPC router " + router + " to guest network " + network);
+        if (_nuageVspManager.needVirtualRouter(network)) {
+            List<DomainRouterVO> routers = _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
+            if ((routers == null) || (routers.size() == 0)) {
+                s_logger.warn("Can't find at least one running router!");
                 return false;
-            } else {
-                s_logger.debug("Successfully added VPC router " + router + " to guest network " + network);
             }
+
+            if (routers.size() > 1) {
+                s_logger.warn("Found more than one router in vpc " + vpc);
+                return false;
+            }
+
+            DomainRouterVO router = routers.get(0);
+            //Add router to guest network if needed
+            if (!_networkMgr.isVmPartOfNetwork(router.getId(), network.getId())) {
+                Map<VirtualMachineProfile.Param, Object> paramsForRouter = new HashMap<VirtualMachineProfile.Param, Object>(1);
+                if (network.getState() == State.Setup) {
+                    paramsForRouter.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
+                }
+                if (!_vpcRouterMgr.addVpcRouterToGuestNetwork(router, network, false, paramsForRouter)) {
+                    s_logger.warn("[implement] Failed to add VPC router " + router + " to guest network " + network);
+                    return false;
+                } else {
+                    s_logger.debug("[implement] Successfully added VPC router " + router + " to guest network " + network);
+                }
+            }
+        } else {
+            s_logger.info("[implement] No VR is spinned for VPC " + vpc);
         }
+
+
 
         if (s_logger.isDebugEnabled()) {
-            s_logger.debug("Starting the sync for network " + network.getName() + " at " + new Date());
-            s_logger.debug("Started Sync Network ACL Rule for network " + network.getName() + " at " + new Date());
+            s_logger.debug("[implement] Starting the sync for network " + network.getName() + " at " + new Date());
+            s_logger.debug("[implement] Started Sync Network ACL Rule for network " + network.getName() + " at " + new Date());
         }
         List<NetworkACLItemVO> rules = null;
         if (network.getNetworkACLId() != null) {
@@ -333,10 +346,10 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         }
 
         if (s_logger.isDebugEnabled()) {
-            s_logger.debug("Finished Sync Network ACL Rule for network " + network.getName() + " at " + new Date());
+            s_logger.debug("[implement] Finished Sync Network ACL Rule for network " + network.getName() + " at " + new Date());
         }
         if (s_logger.isDebugEnabled()) {
-            s_logger.debug("Finished the sync for network " + network.getName() + " at " + new Date());
+            s_logger.debug("[implement] Finished the sync for network " + network.getName() + " at " + new Date());
         }
 
         return true;
@@ -364,34 +377,35 @@ public class NuageVspVpcElement extends NuageVspElement implements VpcProvider, 
         if (vm.getType() == VirtualMachine.Type.User) {
             Map<VirtualMachineProfile.Param, Object> params = new HashMap<VirtualMachineProfile.Param, Object>(1);
             params.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
-            List<DomainRouterVO> routers = _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
-            if ((routers == null) || (routers.size() == 0)) {
-                s_logger.warn("Can't find at least one running router!");
-                return false;
-            }
-
-            if (routers.size() > 1) {
-                s_logger.warn("Found more than one router in vpc " + vpc);
-                return false;
-            }
-
-            DomainRouterVO router = routers.get(0);
-            //Add router to guest network if needed
-            if (!_networkMgr.isVmPartOfNetwork(router.getId(), network.getId())) {
-                Map<VirtualMachineProfile.Param, Object> paramsForRouter = new HashMap<VirtualMachineProfile.Param, Object>(1);
-                //need to reprogram guest network if it comes in a setup state
-                if (network.getState() == State.Setup) {
-                    paramsForRouter.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
-                }
-                if (!_vpcRouterMgr.addVpcRouterToGuestNetwork(router, network, false, paramsForRouter)) {
-                    s_logger.warn("Failed to add VPC router " + router + " to guest network " + network);
+            if (_nuageVspManager.needVirtualRouter(network)) {
+                List<DomainRouterVO> routers = _vpcRouterMgr.deployVirtualRouterInVpc(vpc, dest, _accountMgr.getAccount(vpc.getAccountId()), params);
+                if ((routers == null) || (routers.size() == 0)) {
+                    s_logger.warn("Can't find at least one running router!");
                     return false;
-                } else {
-                    s_logger.debug("Successfully added VPC router " + router + " to guest network " + network);
+                }
+
+                if (routers.size() > 1) {
+                    s_logger.warn("Found more than one router in vpc " + vpc);
+                    return false;
+                }
+
+                DomainRouterVO router = routers.get(0);
+                //Add router to guest network if needed
+                if (!_networkMgr.isVmPartOfNetwork(router.getId(), network.getId())) {
+                    Map<VirtualMachineProfile.Param, Object> paramsForRouter = new HashMap<VirtualMachineProfile.Param, Object>(1);
+                    //need to reprogram guest network if it comes in a setup state
+                    if (network.getState() == State.Setup) {
+                        paramsForRouter.put(VirtualMachineProfile.Param.ReProgramGuestNetworks, true);
+                    }
+                    if (!_vpcRouterMgr.addVpcRouterToGuestNetwork(router, network, false, paramsForRouter)) {
+                        s_logger.warn("Failed to add VPC router " + router + " to guest network " + network);
+                        return false;
+                    } else {
+                        s_logger.debug("Successfully added VPC router " + router + " to guest network " + network);
+                    }
                 }
             }
         }
-
         return true;
     }
 

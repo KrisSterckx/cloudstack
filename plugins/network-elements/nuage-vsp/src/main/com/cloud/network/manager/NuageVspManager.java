@@ -17,8 +17,12 @@
 
 package com.cloud.network.manager;
 
+import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 
+import net.nuage.vsp.client.common.model.NetworkDetails;
+import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.ConfigKey.Scope;
 
@@ -27,8 +31,11 @@ import com.cloud.api.commands.DeleteNuageVspDeviceCmd;
 import com.cloud.api.commands.ListNuageVspDevicesCmd;
 import com.cloud.api.commands.UpdateNuageVspDeviceCmd;
 import com.cloud.api.response.NuageVspDeviceResponse;
+import com.cloud.exception.InsufficientVirtualNetworkCapacityException;
+import com.cloud.host.HostVO;
 import com.cloud.network.Network;
 import com.cloud.network.NuageVspDeviceVO;
+import com.cloud.network.vpc.Vpc;
 import com.cloud.utils.component.PluggableService;
 
 public interface NuageVspManager extends PluggableService {
@@ -79,7 +86,49 @@ public interface NuageVspManager extends PluggableService {
 
     List<NuageVspDeviceVO> listNuageVspDevices(ListNuageVspDevicesCmd cmd);
 
+    NetworkDetails getNetworkDetails(Network network) throws NuageVspAPIUtilException;
+
+    HostVO getNuageVspHost(Long physicalNetworkId) throws NuageVspAPIUtilException;
+
     public List<String> getDnsDetails(Network network);
 
     public List<String> getGatewaySystemIds();
+
+    /**
+     * Returns true if the network needs a virtual router (based on the need for userdata.)
+     * @param network
+     * @return
+     */
+    public boolean needVirtualRouter(Network network);
+
+    /**
+     * Returns true if the vpc needs a virtual router (if user data is provided by nuage)
+     * @param vpc
+     * @return
+     */
+    public boolean needVirtualRouter(Vpc vpc);
+
+    /**
+     * Calculates the broadcast uri based on the network  and the ip address ranges
+     * @param network
+     * @param ipAddressRanges
+     * @return
+     */
+    public URI calculateBroadcastUri(Network network, Collection<String[]> ipAddressRanges) throws InsufficientVirtualNetworkCapacityException;
+
+    /**
+     * Retrieves the ip address of the virtual router in a certain network.
+     * @param network
+     * @param ipAddressRanges
+     * @return
+     * @throws InsufficientVirtualNetworkCapacityException
+     */
+    public String getVirtualRouterIP(Network network, Collection<String[]> ipAddressRanges) throws InsufficientVirtualNetworkCapacityException;
+
+    /**
+     * Recalculates the broadCastUri and updates the network with the recalculated uri.
+     * @param network
+     * @throws InsufficientVirtualNetworkCapacityException
+     */
+    public void updateNetworkBroadcastUri(Network network) throws InsufficientVirtualNetworkCapacityException;
 }

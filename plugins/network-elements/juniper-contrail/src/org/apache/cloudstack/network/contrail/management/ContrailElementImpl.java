@@ -383,4 +383,9 @@ public class ContrailElementImpl extends AdapterBase
                throws ResourceUnavailableException {
        return false;
     }
+
+    @Override
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        return false;
+    }
 }

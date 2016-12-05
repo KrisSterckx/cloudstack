@@ -17,9 +17,12 @@
 
 package com.cloud.network.manager;
 
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,13 +39,17 @@ import javax.naming.ConfigurationException;
 
 import com.cloud.api.commands.ConfigureNuageVspDeviceExperimentalFeatureCmd;
 import com.cloud.api.commands.ListNuageVspDeviceExperimentalFeaturesCmd;
+import com.cloud.exception.InsufficientVirtualNetworkCapacityException;
+import com.cloud.exception.UnsupportedServiceException;
 import com.cloud.network.upgrade.NuageUpgrade;
+import com.cloud.network.vpc.Vpc;
 import com.cloud.offering.NetworkOffering;
 import com.cloud.offerings.NetworkOfferingServiceMapVO;
 import com.cloud.offerings.NetworkOfferingVO;
 import com.cloud.offerings.dao.NetworkOfferingDao;
 import com.cloud.offerings.dao.NetworkOfferingServiceMapDao;
 import com.google.common.collect.Lists;
+import net.nuage.vsp.client.common.model.NetworkDetails;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
 import net.nuage.vsp.client.common.model.NuageVspEntity;
 import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
@@ -128,6 +135,7 @@ import com.cloud.resource.ServerResource;
 import com.cloud.user.AccountManager;
 import com.cloud.user.DomainManager;
 import com.cloud.util.NuageVspUtil;
+import com.cloud.utils.Pair;
 import com.cloud.utils.StringUtils;
 import com.cloud.utils.component.ManagerBase;
 import com.cloud.utils.crypt.DBEncryptionUtil;
@@ -139,6 +147,7 @@ import com.cloud.utils.db.TransactionStatus;
 import com.cloud.utils.exception.CloudRuntimeException;
 import com.cloud.utils.fsm.StateListener;
 import com.cloud.utils.fsm.StateMachine2;
+import com.cloud.utils.net.NetUtils;
 
 import static com.cloud.agent.api.SyncNuageVspCmsIdCommand.SyncType;
 
@@ -170,6 +179,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Inject
     VpcDao _vpcDao;
     @Inject
+    NetworkOfferingServiceMapDao _ntwkOfferingSrvcDao;
+    @Inject
     VpcManager _vpcManager;
     @Inject
     NuageVspDao nuageVspDao;
@@ -180,7 +191,7 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     @Inject
     ConfigurationDao _configDao;
     @Inject
-    NetworkModel _ntwkModel;
+    NetworkModel _networkModel;
     @Inject
     AccountManager _accountMgr;
     @Inject
@@ -716,6 +727,74 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         return true;
     }
 
+    @Override
+    public NetworkDetails getNetworkDetails(Network network) throws NuageVspAPIUtilException {
+        HostVO host = getNuageVspHost(network.getPhysicalNetworkId());
+        String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
+        NuageVspAPIParams nuageVspAPIParams = getNuageVspAPIParameters(host, nuageVspCmsId);
+
+        Domain networksDomain = _domainDao.findByIdIncludingRemoved(network.getDomainId());
+        final String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParams);
+        NetworkDetails.Builder builder = new NetworkDetails.Builder().enterprise(enterpriseId);
+
+        if (isL3Network(network)) {
+            if (network.getTrafficType() == Networks.TrafficType.Public)  {
+                String vspDomainExternalId = network.getUuid();
+                String vspSubnetExternalId = network.getUuid();
+                Pair<String, String> domainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, vspSubnetExternalId, nuageVspAPIParams, vspDomainExternalId);
+                builder.vpcTier(network.getId(), domainAndSubnetId.first(), vspDomainExternalId, domainAndSubnetId.second(), vspSubnetExternalId);
+            } else if (network.getVpcId() != null) {
+                String vspDomainExternalId = getExternalIdForVspDomain(network);
+                String vspSubnetExternalId = network.getUuid();
+                Pair<String, String> domainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, vspSubnetExternalId, nuageVspAPIParams, vspDomainExternalId);
+                builder.vpcTier(network.getId(), domainAndSubnetId.first(), vspDomainExternalId, domainAndSubnetId.second(), vspSubnetExternalId);
+            } else {
+                String vspSubnetExternalId = network.getUuid();
+                Pair<String, String> domainAndSubnetId = NuageVspApiUtil.getIsolatedSubNetwork(enterpriseId, vspSubnetExternalId, nuageVspAPIParams, vspSubnetExternalId);
+                builder.isolatedNetwork(network.getId(), domainAndSubnetId.first(), domainAndSubnetId.second(), vspSubnetExternalId);
+            }
+
+        }
+        return builder.build();
+    }
+
+    private NuageVspAPIParams getNuageVspAPIParameters(HostVO host, String nuageVspCmsId) {
+        Map<String, String> hostDetails = host.getDetails();
+        return NuageVspApiUtil.getNuageVspAPIParametersAsCmsUser(hostDetails, nuageVspCmsId);
+    }
+
+    @Override
+    public HostVO getNuageVspHost(Long physicalNetworkId) throws NuageVspAPIUtilException {
+        // TODO: Cache this as we don't want a DB hit everytime we send a message to VSD
+        HostVO nuageVspHost;
+        List<NuageVspDeviceVO> nuageVspDevices = _nuageVspDao.listByPhysicalNetwork(physicalNetworkId);
+        if (nuageVspDevices != null && (!nuageVspDevices.isEmpty())) {
+            NuageVspDeviceVO config = nuageVspDevices.iterator().next();
+            nuageVspHost = _hostDao.findById(config.getHostId());
+            _hostDao.loadDetails(nuageVspHost);
+        } else {
+            throw new NuageVspAPIUtilException("Nuage VSD is not configured on physical network " + physicalNetworkId);
+        }
+        return nuageVspHost;
+    }
+
+    private String getExternalIdForVspDomain(Network network) {
+        Long vpcId = network.getVpcId();
+        if (vpcId != null) {
+            Vpc vpc = _vpcDao.findById(vpcId);
+            return vpc.getUuid();
+        } else {
+            return network.getUuid();
+        }
+    }
+
+    private boolean isL3Network(Network config) {
+        long networkOfferingId = _networkOfferingDao.findById(config.getNetworkOfferingId()).getId();
+        return config.getVpcId() != null
+                || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Network.Service.SourceNat)
+                || _ntwkOfferingSrvcDao.areServicesSupportedByNetworkOffering(networkOfferingId, Network.Service.StaticNat);
+    }
+
     @DB
     private void initMessageBusListeners() {
         // Create corresponding enterprise and profile in VSP when creating a CS Domain
@@ -1019,5 +1098,87 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[] {NuageVspConfigDns, NuageVspDnsExternal, NuageVspConfigGateway,
                 NuageVspSharedNetworkDomainTemplateName, NuageVspVpcDomainTemplateName, NuageVspIsolatedNetworkDomainTemplateName, NuageVspMultiTenancy};
+    }
+
+    @Override
+    public boolean needVirtualRouter(Network network) {
+        try {
+            return _networkModel.getUserDataUpdateProvider(network) != null;
+        } catch (UnsupportedServiceException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean needVirtualRouter(Vpc vpc) {
+        try {
+            List<VpcOfferingServiceMapVO> serviceOfferingMap = _vpcOffSvcMapDao.listByVpcOffId(vpc.getVpcOfferingId());
+
+            for (VpcOfferingServiceMapVO serviceOffering : serviceOfferingMap) {
+                if (serviceOffering.getService().equals(Service.UserData.getName()) &&
+                        serviceOffering.getProvider().equals(Network.Provider.NuageVspVpc.getName())) {
+                    return true;
+                }
+            }
+        } catch (UnsupportedServiceException e) {
+            return false;
+        }
+        return false;
+    }
+
+    public URI calculateBroadcastUri(Network network, Collection<String[]> ipAddressRanges)
+            throws InsufficientVirtualNetworkCapacityException {
+        String virtualRouterIp =
+                needVirtualRouter(network) ? getVirtualRouterIP(network, ipAddressRanges) : "null";
+        URI uri = Networks.BroadcastDomainType.Vsp.toUri(network.getUuid() + "/" + virtualRouterIp);
+        s_logger.debug("[NuageVspGuestNetworkGuru] network uuid="+ network.getUuid() + ": broadcastUri=" + uri);
+        return uri;
+    }
+
+    @Override
+    public String getVirtualRouterIP(Network network, Collection<String[]> ipAddressRanges) throws InsufficientVirtualNetworkCapacityException {
+        String virtualRouterIp;
+        //Check if the subnet has minimum 5 host in it.
+        String subnet = NetUtils.getCidrSubNet(network.getCidr());
+        String netmask = NetUtils.getCidrNetmask(network.getCidr());
+        long cidrSize = NetUtils.getCidrSize(netmask);
+
+        Set<Long> allIPsInCidr = NetUtils.getAllIpsFromCidr(subnet, cidrSize, new HashSet<Long>());
+
+        if (allIPsInCidr.size() > 3) {
+            //get the second IP and see if it the networks GatewayIP
+            Iterator<Long> ipIterator = allIPsInCidr.iterator();
+            long vip = ipIterator.next();
+            if (NetUtils.ip2Long(network.getGateway()) == vip) {
+                s_logger.debug("Gateway of the Network(" + network.getName() + ") has the first IP " + NetUtils.long2Ip(vip));
+                vip = ipIterator.next();
+                virtualRouterIp = NetUtils.long2Ip(vip);
+                s_logger.debug("So, reserving the 2nd IP " + virtualRouterIp + " for the Virtual Router IP in Network(" + network.getName() + ")");
+            } else {
+                virtualRouterIp = NetUtils.long2Ip(vip);
+                s_logger.debug("1nd IP is not used as the gateway IP. So, reserving" + virtualRouterIp + " for the Virtual Router IP for " + "Network(" + network.getName() + ")");
+            }
+
+            if (ipAddressRanges != null) {
+                String[] ipAddressRange = new String[2];
+                ipAddressRange[0] = NetUtils.long2Ip(ipIterator.next());
+                ipAddressRange[1] = NetUtils.getIpRangeEndIpFromCidr(subnet, cidrSize);
+                ipAddressRanges.add(ipAddressRange);
+            }
+
+            return virtualRouterIp;
+        }
+
+        throw new InsufficientVirtualNetworkCapacityException("VSP allocates an IP for VirtualRouter. So, subnet should have atleast minimum 4 hosts ", Network.class,
+                network.getId());
+    }
+
+    @Override
+    public void updateNetworkBroadcastUri(Network network) throws InsufficientVirtualNetworkCapacityException {
+        Collection<String[]> ipAddressRanges = new ArrayList<String[]>();
+        URI broadcastUri = calculateBroadcastUri(network, ipAddressRanges);
+        NetworkVO updatedNetwork = _networkDao.findById(network.getId());
+        updatedNetwork.setBroadcastUri(broadcastUri);
+        _networkDao.update(network.getId(), updatedNetwork);
     }
 }

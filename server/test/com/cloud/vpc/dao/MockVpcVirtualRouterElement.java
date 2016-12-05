@@ -16,8 +16,11 @@
 // under the License.
 package com.cloud.vpc.dao;
 
+import java.util.Map;
+
 import com.cloud.exception.ConcurrentOperationException;
 import com.cloud.exception.ResourceUnavailableException;
+import com.cloud.network.Network;
 import com.cloud.network.element.VpcVirtualRouterElement;
 import com.cloud.network.vpc.Vpc;
 import com.cloud.vm.ReservationContext;
@@ -28,4 +31,8 @@ public class MockVpcVirtualRouterElement extends VpcVirtualRouterElement {
         return true;
     }
 
+    @Override
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        return true;
+    }
 }

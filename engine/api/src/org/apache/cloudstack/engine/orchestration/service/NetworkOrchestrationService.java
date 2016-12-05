@@ -80,6 +80,8 @@ public interface NetworkOrchestrationService {
     void allocate(VirtualMachineProfile vm, LinkedHashMap<? extends Network, List<? extends NicProfile>> networks) throws InsufficientCapacityException,
         ConcurrentOperationException;
 
+    void configureExtraDhcpOptions(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException;
+
     void prepare(VirtualMachineProfile profile, DeployDestination dest, ReservationContext context) throws InsufficientCapacityException, ConcurrentOperationException,
         ResourceUnavailableException;
 
