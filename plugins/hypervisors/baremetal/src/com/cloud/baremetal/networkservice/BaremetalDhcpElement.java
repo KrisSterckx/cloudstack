@@ -189,7 +189,7 @@ public class BaremetalDhcpElement extends AdapterBase implements DhcpServiceProv
     }
 
     @Override
-    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extraDhcpOptions, String nicUuid) throws ResourceUnavailableException {
         return false;
     }
 

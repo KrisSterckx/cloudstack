@@ -17,6 +17,7 @@ import javax.inject.Inject;
 
 import com.cloud.utils.exception.CloudRuntimeException;
 
+import net.nuage.vsp.client.common.model.DhcpOption;
 import net.nuage.vsp.client.common.model.DhcpOptions;
 import net.nuage.vsp.client.common.model.NetworkDetails;
 import net.nuage.vsp.client.common.model.NuageVspAPIParams;
@@ -26,6 +27,7 @@ import net.nuage.vsp.client.exception.NuageVspAPIUtilException;
 import net.nuage.vsp.client.rest.NuageVspApi;
 import net.nuage.vsp.client.rest.NuageVspApiUtil;
 
+import org.apache.cloudstack.api.ApiConstants;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -82,6 +84,7 @@ import com.cloud.vm.NicVO;
 import com.cloud.vm.ReservationContext;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachineProfile;
+import com.cloud.vm.dao.UserVmDetailsDao;
 import com.cloud.vm.dao.VMInstanceDao;
 
 import static com.cloud.util.ExperimentalFeatureLoader.ExperimentalFeature.CONCURRENT_VSD_OPS;
@@ -116,6 +119,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
     NetworkDetailsDao _networkDetailsDao;
     @Inject
     ExperimentalFeatureLoader _expFeatureLoader;
+    @Inject
+    UserVmDetailsDao _userVmDetailsDao;
 
     public NuageVspGuestNetworkGuru() {
         super();
@@ -427,6 +432,8 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                 // Create the dhcp options
                 DhcpOptions dhcpOptions = new DhcpOptions(vm.getHostName(), allocatedNic.isDefaultNic(), domainRouter);
 
+                Map<Integer, String> extraDhcpOptions = _userVmDetailsDao.listDhcpOptions(vm.getId());
+                extractSupportedDhcpOptions(dhcpOptions, extraDhcpOptions, ApiConstants.supportedDhcpOptions);
 
                 //now execute all the APIs a the network's account user. So reset the nuage API parameters
                 NuageVspAPIParams nuageVspAPIParamsAsNtwkAccUser;
@@ -478,10 +485,6 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
                             VlanVO staticNatVlan = _vlanDao.findById(staticNatIp.getVlanId());
                             NuageVspApiUtil.applyStaticNatInVSP(network.getName(), network.getUuid(), nuageVspAPIParamsAsCmsUser, attachedNetworkDetails, staticNatIp.getAddress().addr(), staticNatIp.getUuid(),
                                         staticNatVlan.getUuid(), staticNatVlan.getVlanGateway(), staticNatVlan.getVlanNetmask() , allocatedNic.getIp4Address(), null, vportAndDomainId[0]);
-                               /* NuageVspApiUtil.applyStaticNatInVSP(network.getName(), network.getUuid(), nuageVspAPIParamsAsCmsUser, vportAndDomainId[1],
-                                    attachedNetworkDetails, staticNatIp.getAddress().addr(), staticNatIp.getUuid(),
-                                    staticNatVlan.getVlanGateway(), staticNatVlan.getVlanNetmask(), staticNatVlan.getUuid(), allocatedNic.getIp4Address(), null, vportAndDomainId[0], null);
-                        */
                         }
                     } catch (Exception e) {
                         s_logger.warn("Post processing of StaticNAT could not continue. Error happened while checking if StaticNat " + staticNatIp.getAddress()
@@ -495,6 +498,16 @@ public class NuageVspGuestNetworkGuru extends GuestNetworkGuru {
             if (network != null && lockedNetwork) {
                 _networkDao.releaseFromLockTable(network.getId());
                 s_logger.debug("Unlocked network " + network.getId() + " for creation of user VM " + vm.getInstanceName());
+            }
+        }
+    }
+
+    private void extractSupportedDhcpOptions(DhcpOptions appliedDhcpOptions, Map<Integer, String> actualDhcpOptions, final Iterable<Integer> supportedDhcpOptions) {
+        for(Integer dhcpCode : supportedDhcpOptions) {
+            String dhcpValue = actualDhcpOptions.get(dhcpCode);
+            if(StringUtils.isNotBlank(dhcpValue)) {
+                DhcpOption option = new DhcpOption(dhcpCode, dhcpValue);
+                appliedDhcpOptions.addOption(option);
             }
         }
     }

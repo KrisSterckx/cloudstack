@@ -41,6 +41,7 @@ import com.cloud.api.commands.ConfigureNuageVspDeviceExperimentalFeatureCmd;
 import com.cloud.api.commands.ListNuageVspDeviceExperimentalFeaturesCmd;
 import com.cloud.exception.InsufficientVirtualNetworkCapacityException;
 import com.cloud.exception.UnsupportedServiceException;
+import com.cloud.network.dao.NetworkDetailsDao;
 import com.cloud.network.upgrade.NuageUpgrade;
 import com.cloud.network.vpc.Vpc;
 import com.cloud.offering.NetworkOffering;
@@ -58,6 +59,7 @@ import net.nuage.vsp.client.rest.NuageVspApiVersion;
 import net.nuage.vsp.client.rest.NuageVspConstants;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.log4j.Logger;
 
 import com.google.common.base.Objects;
@@ -210,7 +212,8 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
     NetworkOfferingServiceMapDao _networkOfferingServiceMapDao;
 
     private ScheduledExecutorService scheduler;
-
+    @Inject
+    NetworkDetailsDao _networkDetailsDao;
     @Inject
     MessageBus _messageBus;
 
@@ -736,6 +739,27 @@ public class NuageVspManagerImpl extends ManagerBase implements NuageVspManager,
         Domain networksDomain = _domainDao.findByIdIncludingRemoved(network.getDomainId());
         final String enterpriseId = NuageVspUtil.getEnterpriseId(networksDomain, _domainDao, nuageVspAPIParams);
         NetworkDetails.Builder builder = new NetworkDetails.Builder().enterprise(enterpriseId);
+
+        Map<String, String> networkDetails = _networkDetailsDao.listDetailsKeyPairs(network.getId(), false);
+        if (MapUtils.isNotEmpty(networkDetails) && networkDetails.containsKey(NuageVspConstants.NETWORK_METADATA_TYPE)) {
+
+            NuageVspEntity type = NuageVspEntity.valueOf(networkDetails.get(NuageVspConstants.NETWORK_METADATA_TYPE));
+            String domainId = networkDetails.get(NuageVspConstants.NETWORK_METADATA_VSD_DOMAIN_ID);
+            if (type == NuageVspEntity.SUBNET) {
+                String subnetId = networkDetails.get(NuageVspConstants.NETWORK_METADATA_VSD_SUBNET_ID);
+                String vspSubnetExternalId = network.getUuid();
+                if (network.getVpcId() != null) {
+                    String vspDomainExternalId = getExternalIdForVspDomain(network);
+                    builder.vpcTier(network.getId(), domainId, vspDomainExternalId, subnetId, vspSubnetExternalId);
+                } else {
+                    builder.isolatedNetwork(network.getId(), domainId, subnetId, vspSubnetExternalId);
+                }
+            } else {
+                builder.l2Network(network.getId(), domainId, network.getUuid());
+            }
+
+            return builder.build();
+        }
 
         if (isL3Network(network)) {
             if (network.getTrafficType() == Networks.TrafficType.Public)  {

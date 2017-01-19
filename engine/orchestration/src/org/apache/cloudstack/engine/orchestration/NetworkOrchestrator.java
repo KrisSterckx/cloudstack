@@ -1387,8 +1387,6 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
 
         profile.setSecurityGroupEnabled(_networkModel.isSecurityGroupSupportedInNetwork(network));
         guru.updateNicProfile(profile, network);
-        Map<Integer, String> dhcpOptions = _userVmDetailsDao.listDhcpOptions(vmProfile.getId());
-        configureExtraDhcpOptions(network, dhcpOptions, profile.getUuid());
         return profile;
     }
 

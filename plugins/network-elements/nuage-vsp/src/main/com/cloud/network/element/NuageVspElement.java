@@ -600,8 +600,8 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
     }
 
     @Override
-    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extradhcpOptions, String nicUuid) throws ResourceUnavailableException {
-        if (extradhcpOptions != null) {
+    public boolean setDhcpOptionsForVM(Network network, Map<Integer, String> extraDhcpOptions, String nicUuid) throws ResourceUnavailableException {
+        if (extraDhcpOptions != null) {
             NuageVspAPIParams nuageVspAPIParamsAsCmsUser = null;
             try {
                 String nuageVspCmsId = NuageVspUtil.findNuageVspDeviceCmsIdByPhysNet(network.getPhysicalNetworkId(), _nuageVspDao, _configDao);
@@ -611,7 +611,7 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
             }
 
             DhcpOptions dhcpOptions = new DhcpOptions();
-            List<Integer> deleteCurrentDhcpOptions = extractDhcpOptions(extradhcpOptions, ApiConstants.supportedDhcpOptions, dhcpOptions);
+            List<Integer> deleteCurrentDhcpOptions = extractDhcpOptions(extraDhcpOptions, ApiConstants.supportedDhcpOptions, dhcpOptions);
             NetworkDetails networkDetails = null;
             String vportVsdId = null;
             try {
@@ -644,7 +644,6 @@ public class NuageVspElement extends AdapterBase implements ConnectivityProvider
                 deleteCurrentDhcpOption.add(dhcpCode);
             }
         }
-
         return deleteCurrentDhcpOption;
     }
 
